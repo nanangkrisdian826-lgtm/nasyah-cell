@@ -63,23 +63,64 @@ public class MainActivity extends Activity {
         TextView title = text("NASYAH CELL", 25, Color.WHITE, true);
         header.addView(title);
 
-        TextView subtitle = text("Layanan Transaksi", 15, Color.WHITE, false);
+        TextView subtitle = text(
+                "Layanan Transaksi",
+                15,
+                Color.WHITE,
+                false
+        );
+
         LinearLayout.LayoutParams subLp = matchWrap();
         subLp.topMargin = dp(5);
         header.addView(subtitle, subLp);
 
-        TextView saldo = text("SALDO ANDA\nRp 0", 20, Color.WHITE, true);
-        LinearLayout.LayoutParams saldoLp = matchWrap();
-        saldoLp.topMargin = dp(18);
-        header.addView(saldo, saldoLp);
+        // SALDO DAN DEPOSIT DALAM SATU KOTAK BIRU
+        LinearLayout saldoDepositRow = new LinearLayout(this);
+        saldoDepositRow.setOrientation(LinearLayout.HORIZONTAL);
+        saldoDepositRow.setGravity(Gravity.CENTER_VERTICAL);
 
-        // TOMBOL DEPOSIT DI BAGIAN ATAS
-        TextView deposit = menuButton("DEPOSIT / ISI SALDO");
-        deposit.setTextColor(blue);
+        // BAGIAN SALDO
+        TextView saldo = text(
+                "SALDO ANDA\nRp 0",
+                16,
+                Color.WHITE,
+                true
+        );
+        saldo.setGravity(Gravity.CENTER);
 
-        LinearLayout.LayoutParams depositLp = matchWrap();
-        depositLp.topMargin = dp(15);
-        header.addView(deposit, depositLp);
+        LinearLayout.LayoutParams saldoLp =
+                new LinearLayout.LayoutParams(0, dp(55), 1);
+
+        saldoDepositRow.addView(saldo, saldoLp);
+
+        // GARIS PEMISAH PUTIH
+        View garis = new View(this);
+        garis.setBackgroundColor(Color.WHITE);
+
+        LinearLayout.LayoutParams garisLp =
+                new LinearLayout.LayoutParams(dp(1), dp(38));
+
+        saldoDepositRow.addView(garis, garisLp);
+
+        // BAGIAN DEPOSIT
+        TextView deposit = text(
+                "DEPOSIT /\nISI SALDO",
+                14,
+                Color.WHITE,
+                true
+        );
+
+        deposit.setGravity(Gravity.CENTER);
+
+        LinearLayout.LayoutParams depositLp =
+                new LinearLayout.LayoutParams(0, dp(55), 1);
+
+        saldoDepositRow.addView(deposit, depositLp);
+
+        LinearLayout.LayoutParams rowLp = matchWrap();
+        rowLp.topMargin = dp(15);
+
+        header.addView(saldoDepositRow, rowLp);
 
         deposit.setOnClickListener(v ->
                 showMessage(
@@ -90,13 +131,23 @@ public class MainActivity extends Activity {
 
         page.addView(header, matchWrap());
 
-        TextView menuTitle = text("PILIH LAYANAN", 18, Color.BLACK, true);
+        // JUDUL MENU
+        TextView menuTitle = text(
+                "PILIH LAYANAN",
+                18,
+                Color.BLACK,
+                true
+        );
+
         LinearLayout.LayoutParams menuTitleLp = matchWrap();
         menuTitleLp.topMargin = dp(22);
         menuTitleLp.bottomMargin = dp(12);
+
         page.addView(menuTitle, menuTitleLp);
 
+        // DAFTAR MENU
         for (int i = 0; i < categories.length; i += 2) {
+
             LinearLayout row = new LinearLayout(this);
             row.setOrientation(LinearLayout.HORIZONTAL);
 
@@ -106,37 +157,51 @@ public class MainActivity extends Activity {
                 addCategoryButton(row, categories[i + 1]);
             }
 
-            LinearLayout.LayoutParams rowLp = matchWrap();
-            rowLp.bottomMargin = dp(10);
-            page.addView(row, rowLp);
+            LinearLayout.LayoutParams rowLp2 = matchWrap();
+            rowLp2.bottomMargin = dp(10);
+
+            page.addView(row, rowLp2);
         }
 
+        // RIWAYAT TRANSAKSI
         TextView history = menuButton("RIWAYAT TRANSAKSI");
+
         LinearLayout.LayoutParams historyLp = matchWrap();
         historyLp.topMargin = dp(12);
+
         page.addView(history, historyLp);
 
         history.setOnClickListener(v ->
-                showMessage("Riwayat Transaksi", "Belum ada transaksi.")
+                showMessage(
+                        "Riwayat Transaksi",
+                        "Belum ada transaksi."
+                )
         );
 
+        // FOOTER
         TextView footer = text(
                 "NASYAH CELL\nLayanan Pulsa dan PPOB",
                 13,
                 Color.GRAY,
                 false
         );
+
         footer.setGravity(Gravity.CENTER);
 
         LinearLayout.LayoutParams footerLp = matchWrap();
         footerLp.topMargin = dp(25);
+
         page.addView(footer, footerLp);
 
         scroll.addView(page);
         setContentView(scroll);
     }
 
-    private void addCategoryButton(LinearLayout row, String category) {
+    private void addCategoryButton(
+            LinearLayout row,
+            String category
+    ) {
+
         TextView button = menuButton(category);
 
         LinearLayout.LayoutParams lp =
@@ -153,6 +218,7 @@ public class MainActivity extends Activity {
     }
 
     private void showProduct(String category) {
+
         selectedCategory = category;
 
         LinearLayout page = new LinearLayout(this);
@@ -160,9 +226,16 @@ public class MainActivity extends Activity {
         page.setPadding(dp(18), dp(20), dp(18), dp(20));
         page.setBackgroundColor(Color.rgb(245, 247, 250));
 
-        TextView title = text(category, 24, blue, true);
+        TextView title = text(
+                category,
+                24,
+                blue,
+                true
+        );
+
         LinearLayout.LayoutParams titleLp = matchWrap();
         titleLp.bottomMargin = dp(20);
+
         page.addView(title, titleLp);
 
         LinearLayout card = new LinearLayout(this);
@@ -176,8 +249,10 @@ public class MainActivity extends Activity {
                 Color.BLACK,
                 true
         );
+
         card.addView(numberLabel);
 
+        // NOMOR TUJUAN DAN KONTAK
         LinearLayout contactRow = new LinearLayout(this);
         contactRow.setOrientation(LinearLayout.HORIZONTAL);
         contactRow.setGravity(Gravity.CENTER_VERTICAL);
@@ -194,7 +269,9 @@ public class MainActivity extends Activity {
 
         LinearLayout.LayoutParams numberLp =
                 new LinearLayout.LayoutParams(0, dp(50), 1);
+
         numberLp.rightMargin = dp(8);
+
         contactRow.addView(numberInput, numberLp);
 
         TextView contactButton = menuButton("Kontak");
@@ -202,23 +279,28 @@ public class MainActivity extends Activity {
 
         LinearLayout.LayoutParams contactLp =
                 new LinearLayout.LayoutParams(dp(85), dp(50));
+
         contactRow.addView(contactButton, contactLp);
 
         contactButton.setOnClickListener(v -> pickContact());
 
         LinearLayout.LayoutParams contactRowLp = matchWrap();
         contactRowLp.topMargin = dp(10);
+
         card.addView(contactRow, contactRowLp);
 
+        // PILIH PRODUK
         TextView productLabel = text(
                 "Pilih Produk",
                 15,
                 Color.BLACK,
                 true
         );
+
         LinearLayout.LayoutParams productLabelLp = matchWrap();
         productLabelLp.topMargin = dp(20);
         productLabelLp.bottomMargin = dp(8);
+
         card.addView(productLabel, productLabelLp);
 
         productSpinner = new Spinner(this);
@@ -236,9 +318,12 @@ public class MainActivity extends Activity {
         productSpinner.setAdapter(adapter);
         card.addView(productSpinner, matchWrap());
 
+        // TOMBOL TRANSAKSI
         TextView buyButton = menuButton("LANJUTKAN TRANSAKSI");
+
         LinearLayout.LayoutParams buyLp = matchWrap();
         buyLp.topMargin = dp(22);
+
         card.addView(buyButton, buyLp);
 
         buyButton.setOnClickListener(v -> processTransaction());
@@ -252,6 +337,7 @@ public class MainActivity extends Activity {
 
         LinearLayout.LayoutParams statusLp = matchWrap();
         statusLp.topMargin = dp(15);
+
         card.addView(statusText, statusLp);
 
         page.addView(card, matchWrap());
@@ -265,13 +351,16 @@ public class MainActivity extends Activity {
 
         LinearLayout.LayoutParams noteLp = matchWrap();
         noteLp.topMargin = dp(15);
+
         page.addView(note, noteLp);
 
         setContentView(page);
     }
 
     private String[] getProducts(String category) {
+
         switch (category) {
+
             case "Pulsa":
                 return new String[]{
                         "Pilih Pulsa",
@@ -356,15 +445,24 @@ public class MainActivity extends Activity {
         }
     }
 
+    // MEMBUKA KONTAK HP
     private void pickContact() {
+
         try {
+
             Intent intent = new Intent(
                     Intent.ACTION_PICK,
                     ContactsContract.CommonDataKinds.Phone.CONTENT_URI
             );
+
             startActivityForResult(intent, REQUEST_CONTACT);
+
         } catch (Exception e) {
-            showMessage("Kontak", "Tidak dapat membuka daftar kontak.");
+
+            showMessage(
+                    "Kontak",
+                    "Tidak dapat membuka daftar kontak."
+            );
         }
     }
 
@@ -374,7 +472,12 @@ public class MainActivity extends Activity {
             int resultCode,
             Intent data
     ) {
-        super.onActivityResult(requestCode, resultCode, data);
+
+        super.onActivityResult(
+                requestCode,
+                resultCode,
+                data
+        );
 
         if (requestCode == REQUEST_CONTACT
                 && resultCode == RESULT_OK
@@ -383,6 +486,7 @@ public class MainActivity extends Activity {
             Cursor cursor = null;
 
             try {
+
                 cursor = getContentResolver().query(
                         data.getData(),
                         new String[]{
@@ -394,6 +498,7 @@ public class MainActivity extends Activity {
                 );
 
                 if (cursor != null && cursor.moveToFirst()) {
+
                     String phone = cursor.getString(0);
 
                     if (numberInput != null) {
@@ -402,8 +507,14 @@ public class MainActivity extends Activity {
                 }
 
             } catch (Exception e) {
-                showMessage("Kontak", "Gagal mengambil nomor kontak.");
+
+                showMessage(
+                        "Kontak",
+                        "Gagal mengambil nomor kontak."
+                );
+
             } finally {
+
                 if (cursor != null) {
                     cursor.close();
                 }
@@ -411,22 +522,40 @@ public class MainActivity extends Activity {
         }
     }
 
+    // PROSES TRANSAKSI
     private void processTransaction() {
+
         String number = numberInput.getText().toString().trim();
+
         String product = productSpinner.getSelectedItem().toString();
 
         if (number.isEmpty()) {
-            showMessage("Perhatian", "Masukkan nomor tujuan terlebih dahulu.");
+
+            showMessage(
+                    "Perhatian",
+                    "Masukkan nomor tujuan terlebih dahulu."
+            );
+
             return;
         }
 
         if (number.length() < 5 || number.length() > 20) {
-            showMessage("Perhatian", "Periksa kembali nomor tujuan.");
+
+            showMessage(
+                    "Perhatian",
+                    "Periksa kembali nomor tujuan."
+            );
+
             return;
         }
 
         if (product.startsWith("Pilih")) {
-            showMessage("Perhatian", "Silakan pilih produk terlebih dahulu.");
+
+            showMessage(
+                    "Perhatian",
+                    "Silakan pilih produk terlebih dahulu."
+            );
+
             return;
         }
 
@@ -437,21 +566,33 @@ public class MainActivity extends Activity {
         );
     }
 
+    // TOMBOL MENU
     private TextView menuButton(String value) {
-        TextView button = text(value, 15, blue, true);
+
+        TextView button = text(
+                value,
+                15,
+                blue,
+                true
+        );
+
         button.setGravity(Gravity.CENTER);
         button.setPadding(dp(10), dp(10), dp(10), dp(10));
         button.setBackground(round(Color.WHITE, 12));
+
         return button;
     }
 
+    // FORMAT TEXT
     private TextView text(
             String value,
             int size,
             int color,
             boolean bold
     ) {
+
         TextView view = new TextView(this);
+
         view.setText(value);
         view.setTextSize(size);
         view.setTextColor(color);
@@ -463,27 +604,43 @@ public class MainActivity extends Activity {
         return view;
     }
 
-    private GradientDrawable round(int color, int radius) {
+    // BACKGROUND BULAT
+    private GradientDrawable round(
+            int color,
+            int radius
+    ) {
+
         GradientDrawable drawable = new GradientDrawable();
+
         drawable.setColor(color);
         drawable.setCornerRadius(dp(radius));
+
         return drawable;
     }
 
+    // LAYOUT
     private LinearLayout.LayoutParams matchWrap() {
+
         return new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT
         );
     }
 
+    // UKURAN DP
     private int dp(int value) {
+
         return (int) (
                 value * getResources().getDisplayMetrics().density
         );
     }
 
-    private void showMessage(String title, String message) {
+    // PESAN
+    private void showMessage(
+            String title,
+            String message
+    ) {
+
         new AlertDialog.Builder(this)
                 .setTitle(title)
                 .setMessage(message)
@@ -491,16 +648,24 @@ public class MainActivity extends Activity {
                 .show();
     }
 
+    // TOMBOL KEMBALI HP
     @Override
     public void onBackPressed() {
+
         if (selectedCategory != null) {
+
             showHome();
+
         } else {
+
             new AlertDialog.Builder(this)
                     .setTitle("Keluar Aplikasi")
                     .setMessage("Yakin ingin keluar dari aplikasi?")
                     .setNegativeButton("Tidak", null)
-                    .setPositiveButton("Ya", (dialog, which) -> finish())
+                    .setPositiveButton(
+                            "Ya",
+                            (dialog, which) -> finish()
+                    )
                     .show();
         }
     }
