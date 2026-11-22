@@ -7,7 +7,6 @@ import android.graphics.Color;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
 import android.view.Gravity;
-import android.view.View;
 import android.widget.*;
 
 public class MainActivity extends Activity {
@@ -79,6 +78,7 @@ public class MainActivity extends Activity {
         header.addView(text("Aplikasi Pulsa dan PPOB", 14, Color.WHITE, false));
 
         TextView saldo = text("SALDO ANDA\nRp 0", 20, Color.WHITE, true);
+
         LinearLayout.LayoutParams saldoLp = matchWrap();
         saldoLp.topMargin = dp(18);
         header.addView(saldo, saldoLp);
@@ -121,23 +121,31 @@ public class MainActivity extends Activity {
         }
 
         TextView deposit = menuButton("DEPOSIT / ISI SALDO");
+
         LinearLayout.LayoutParams depositLp = matchWrap();
         depositLp.topMargin = dp(18);
+
         page.addView(deposit, depositLp);
 
         deposit.setOnClickListener(v ->
-            showMessage("Menu Deposit",
-                "Fitur deposit akan dihubungkan dengan sistem pembayaran.")
+            showMessage(
+                "Menu Deposit",
+                "Fitur deposit akan dihubungkan dengan sistem pembayaran."
+            )
         );
 
         TextView history = menuButton("RIWAYAT TRANSAKSI");
+
         LinearLayout.LayoutParams historyLp = matchWrap();
         historyLp.topMargin = dp(10);
+
         page.addView(history, historyLp);
 
         history.setOnClickListener(v ->
-            showMessage("Riwayat",
-                "Riwayat transaksi akan tersedia setelah server API terhubung.")
+            showMessage(
+                "Riwayat",
+                "Riwayat transaksi akan tersedia setelah server API terhubung."
+            )
         );
 
         page.addView(text(
@@ -193,17 +201,7 @@ public class MainActivity extends Activity {
 
         scroll.addView(form);
 
-        TextView back = text(
-            "← Kembali ke Beranda",
-            15,
-            blue,
-            true
-        );
-
-        form.addView(back, matchWrap());
-
-        back.setOnClickListener(v -> showHome());
-
+        // Judul halaman produk tanpa tombol kembali di atas
         TextView title = text(
             category,
             25,
@@ -211,17 +209,19 @@ public class MainActivity extends Activity {
             true
         );
 
-        LinearLayout.LayoutParams titleLp = matchWrap();
-        titleLp.topMargin = dp(25);
+        form.addView(title, matchWrap());
 
-        form.addView(title, titleLp);
-
-        form.addView(text(
+        TextView subtitle = text(
             "Masukkan data tujuan transaksi.",
             14,
             Color.GRAY,
             false
-        ), matchWrap());
+        );
+
+        LinearLayout.LayoutParams subtitleLp = matchWrap();
+        subtitleLp.topMargin = dp(8);
+
+        form.addView(subtitle, subtitleLp);
 
         LinearLayout card = new LinearLayout(this);
         card.setOrientation(LinearLayout.VERTICAL);
