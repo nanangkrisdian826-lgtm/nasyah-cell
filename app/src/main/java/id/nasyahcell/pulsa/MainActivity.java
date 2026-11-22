@@ -201,7 +201,6 @@ public class MainActivity extends Activity {
 
         scroll.addView(form);
 
-        // Judul halaman produk tanpa tombol kembali di atas
         TextView title = text(
             category,
             25,
@@ -210,18 +209,6 @@ public class MainActivity extends Activity {
         );
 
         form.addView(title, matchWrap());
-
-        TextView subtitle = text(
-            "Masukkan data tujuan transaksi.",
-            14,
-            Color.GRAY,
-            false
-        );
-
-        LinearLayout.LayoutParams subtitleLp = matchWrap();
-        subtitleLp.topMargin = dp(8);
-
-        form.addView(subtitle, subtitleLp);
 
         LinearLayout card = new LinearLayout(this);
         card.setOrientation(LinearLayout.VERTICAL);
