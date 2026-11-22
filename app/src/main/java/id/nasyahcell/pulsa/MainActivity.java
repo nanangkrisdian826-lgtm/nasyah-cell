@@ -17,7 +17,7 @@ public class MainActivity extends Activity {
     private EditText numberInput;
     private Spinner productSpinner;
     private TextView statusText;
-    private String selectedCategory = "Pulsa";
+    private String selectedCategory = null;
 
     private final String[] categories = {
         "Pulsa", "Paket Data",
@@ -37,7 +37,29 @@ public class MainActivity extends Activity {
         showHome();
     }
 
+    @Override
+    public void onBackPressed() {
+
+        if (selectedCategory != null) {
+            showHome();
+            return;
+        }
+
+        new android.app.AlertDialog.Builder(this)
+            .setTitle("NASYAH CELL")
+            .setMessage("Yakin ingin keluar dari aplikasi?")
+            .setNegativeButton("Tidak", (dialog, which) -> {
+                dialog.dismiss();
+            })
+            .setPositiveButton("Ya", (dialog, which) -> {
+                finish();
+            })
+            .show();
+    }
+
     private void showHome() {
+
+        selectedCategory = null;
 
         ScrollView scroll = new ScrollView(this);
         scroll.setBackgroundColor(Color.rgb(245, 248, 252));
