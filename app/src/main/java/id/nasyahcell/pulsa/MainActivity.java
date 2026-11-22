@@ -2,6 +2,7 @@
 package id.nasyahcell.pulsa;
 
 import android.app.Activity;
+import android.app.AlertDialog;
 import android.os.Bundle;
 import android.content.Intent;
 import android.database.Cursor;
@@ -10,350 +11,398 @@ import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
 import android.provider.ContactsContract;
 import android.view.Gravity;
+import android.view.View;
+import android.view.ViewGroup;
 import android.widget.*;
 
 public class MainActivity extends Activity {
 
-    private int blue = Color.rgb(22, 103, 190);
-    private LinearLayout page;
+    private final int blue = Color.rgb(22, 103, 190);
+    private String selectedCategory = null;
+
     private EditText numberInput;
     private Spinner productSpinner;
     private TextView statusText;
-    private String selectedCategory = null;
 
     private static final int REQUEST_CONTACT = 1001;
 
     private final String[] categories = {
-        "Pulsa", "Paket Data",
-        "Token PLN", "Tagihan PLN",
-        "BPJS", "PDAM",
-        "E-Wallet", "Voucher Game",
-        "TV Kabel"
+            "Pulsa",
+            "Paket Data",
+            "Token PLN",
+            "Tagihan PLN",
+            "BPJS",
+            "PDAM",
+            "E-Wallet",
+            "Voucher Game",
+            "TV Kabel"
     };
 
     @Override
-    public void onCreate(Bundle saved) {
-        super.onCreate(saved);
-
-        getWindow().setStatusBarColor(Color.rgb(15, 76, 145));
-        getWindow().setNavigationBarColor(Color.rgb(15, 76, 145));
-
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
         showHome();
     }
 
-    @Override
-    public void onBackPressed() {
-
-        if (selectedCategory != null) {
-            showHome();
-            return;
-        }
-
-        new android.app.AlertDialog.Builder(this)
-            .setTitle("NASYAH CELL")
-            .setMessage("Yakin ingin keluar dari aplikasi?")
-            .setNegativeButton("Tidak", (dialog, which) -> dialog.dismiss())
-            .setPositiveButton("Ya", (dialog, which) -> finish())
-            .show();
-    }
-
     private void showHome() {
-
         selectedCategory = null;
 
         ScrollView scroll = new ScrollView(this);
-        scroll.setBackgroundColor(Color.rgb(245, 248, 252));
+        scroll.setFillViewport(true);
 
-        page = new LinearLayout(this);
+        LinearLayout page = new LinearLayout(this);
         page.setOrientation(LinearLayout.VERTICAL);
-        page.setPadding(dp(18), dp(20), dp(18), dp(25));
-
-        scroll.addView(page);
+        page.setPadding(dp(16), dp(16), dp(16), dp(20));
+        page.setBackgroundColor(Color.rgb(245, 247, 250));
 
         LinearLayout header = new LinearLayout(this);
         header.setOrientation(LinearLayout.VERTICAL);
         header.setPadding(dp(20), dp(22), dp(20), dp(22));
         header.setBackground(round(blue, 20));
 
-        header.addView(text("NASYAH CELL", 25, Color.WHITE, true));
-        header.addView(text("Aplikasi Pulsa dan PPOB", 14, Color.WHITE, false));
+        TextView title = text("NASYAH CELL", 25, Color.WHITE, true);
+        header.addView(title);
+
+        TextView subtitle = text("Layanan Transaksi", 15, Color.WHITE, false);
+        LinearLayout.LayoutParams subLp = matchWrap();
+        subLp.topMargin = dp(5);
+        header.addView(subtitle, subLp);
 
         TextView saldo = text("SALDO ANDA\nRp 0", 20, Color.WHITE, true);
-
         LinearLayout.LayoutParams saldoLp = matchWrap();
         saldoLp.topMargin = dp(18);
         header.addView(saldo, saldoLp);
 
-        page.addView(header, matchWrap());
+        // TOMBOL DEPOSIT DI BAGIAN ATAS
+        TextView deposit = menuButton("DEPOSIT / ISI SALDO");
+        deposit.setTextColor(blue);
 
-        TextView title = text(
-            "Layanan Transaksi", 21,
-            Color.rgb(30, 41, 59), true
+        LinearLayout.LayoutParams depositLp = matchWrap();
+        depositLp.topMargin = dp(15);
+        header.addView(deposit, depositLp);
+
+        deposit.setOnClickListener(v ->
+                showMessage(
+                        "Menu Deposit",
+                        "Fitur deposit akan dihubungkan dengan sistem pembayaran."
+                )
         );
 
-        LinearLayout.LayoutParams titleLp = matchWrap();
-        titleLp.topMargin = dp(25);
-        page.addView(title, titleLp);
+        page.addView(header, matchWrap());
 
-        page.addView(text(
-            "Pilih layanan yang ingin kamu gunakan.",
-            13, Color.GRAY, false
-        ), matchWrap());
+        TextView menuTitle = text("PILIH LAYANAN", 18, Color.BLACK, true);
+        LinearLayout.LayoutParams menuTitleLp = matchWrap();
+        menuTitleLp.topMargin = dp(22);
+        menuTitleLp.bottomMargin = dp(12);
+        page.addView(menuTitle, menuTitleLp);
 
         for (int i = 0; i < categories.length; i += 2) {
-
             LinearLayout row = new LinearLayout(this);
             row.setOrientation(LinearLayout.HORIZONTAL);
 
-            LinearLayout.LayoutParams rowLp = matchWrap();
-            rowLp.topMargin = dp(12);
-
-            page.addView(row, rowLp);
-
-            addMenu(row, categories[i]);
+            addCategoryButton(row, categories[i]);
 
             if (i + 1 < categories.length) {
-                addMenu(row, categories[i + 1]);
+                addCategoryButton(row, categories[i + 1]);
             }
+
+            LinearLayout.LayoutParams rowLp = matchWrap();
+            rowLp.bottomMargin = dp(10);
+            page.addView(row, rowLp);
         }
 
-        TextView deposit = menuButton("DEPOSIT / ISI SALDO");
-
-        LinearLayout.LayoutParams depositLp = matchWrap();
-        depositLp.topMargin = dp(18);
-        page.addView(deposit, depositLp);
-
-        deposit.setOnClickListener(v ->
-            showMessage("Menu Deposit",
-                "Fitur deposit akan dihubungkan dengan sistem pembayaran.")
-        );
-
         TextView history = menuButton("RIWAYAT TRANSAKSI");
-
         LinearLayout.LayoutParams historyLp = matchWrap();
-        historyLp.topMargin = dp(10);
+        historyLp.topMargin = dp(12);
         page.addView(history, historyLp);
 
         history.setOnClickListener(v ->
-            showMessage("Riwayat",
-                "Riwayat transaksi akan tersedia setelah server API terhubung.")
+                showMessage("Riwayat Transaksi", "Belum ada transaksi.")
         );
 
-        page.addView(text(
-            "NASYAH CELL © 2026", 12, Color.GRAY, false
-        ), matchWrap());
+        TextView footer = text(
+                "NASYAH CELL\nLayanan Pulsa dan PPOB",
+                13,
+                Color.GRAY,
+                false
+        );
+        footer.setGravity(Gravity.CENTER);
 
+        LinearLayout.LayoutParams footerLp = matchWrap();
+        footerLp.topMargin = dp(25);
+        page.addView(footer, footerLp);
+
+        scroll.addView(page);
         setContentView(scroll);
     }
 
-    private void addMenu(LinearLayout row, String name) {
-
-        TextView button = menuButton(name);
+    private void addCategoryButton(LinearLayout row, String category) {
+        TextView button = menuButton(category);
 
         LinearLayout.LayoutParams lp =
-            new LinearLayout.LayoutParams(0, dp(76), 1);
+                new LinearLayout.LayoutParams(0, dp(65), 1);
 
-        lp.setMargins(dp(4), 0, dp(4), 0);
+        lp.setMargins(dp(4), dp(4), dp(4), dp(4));
 
         row.addView(button, lp);
 
-        button.setOnClickListener(v -> showProduct(name));
-    }
-
-    private TextView menuButton(String name) {
-
-        TextView button = text(name, 15, blue, true);
-
-        button.setGravity(Gravity.CENTER);
-        button.setPadding(dp(5), dp(8), dp(5), dp(8));
-        button.setBackground(round(Color.WHITE, 15));
-
-        return button;
+        button.setOnClickListener(v -> {
+            selectedCategory = category;
+            showProduct(category);
+        });
     }
 
     private void showProduct(String category) {
-
         selectedCategory = category;
 
-        ScrollView scroll = new ScrollView(this);
-        scroll.setBackgroundColor(Color.rgb(245, 248, 252));
+        LinearLayout page = new LinearLayout(this);
+        page.setOrientation(LinearLayout.VERTICAL);
+        page.setPadding(dp(18), dp(20), dp(18), dp(20));
+        page.setBackgroundColor(Color.rgb(245, 247, 250));
 
-        LinearLayout form = new LinearLayout(this);
-        form.setOrientation(LinearLayout.VERTICAL);
-        form.setPadding(dp(20), dp(22), dp(20), dp(25));
-
-        scroll.addView(form);
-
-        form.addView(text(
-            category, 25, Color.rgb(30, 41, 59), true
-        ), matchWrap());
+        TextView title = text(category, 24, blue, true);
+        LinearLayout.LayoutParams titleLp = matchWrap();
+        titleLp.bottomMargin = dp(20);
+        page.addView(title, titleLp);
 
         LinearLayout card = new LinearLayout(this);
         card.setOrientation(LinearLayout.VERTICAL);
-        card.setPadding(dp(18), dp(18), dp(18), dp(18));
-        card.setBackground(round(Color.WHITE, 18));
+        card.setPadding(dp(16), dp(18), dp(16), dp(18));
+        card.setBackground(round(Color.WHITE, 16));
 
-        LinearLayout.LayoutParams cardLp = matchWrap();
-        cardLp.topMargin = dp(20);
-        form.addView(card, cardLp);
+        TextView numberLabel = text(
+                "Nomor Tujuan",
+                15,
+                Color.BLACK,
+                true
+        );
+        card.addView(numberLabel);
 
-        String inputLabel = category.equals("Token PLN")
-                || category.equals("Tagihan PLN")
-                || category.equals("BPJS")
-                || category.equals("PDAM")
-                || category.equals("TV Kabel")
-                ? "Nomor ID Pelanggan"
-                : "Nomor HP / Nomor Tujuan";
-
-        card.addView(text(inputLabel, 14, Color.DKGRAY, true));
-
-        // Kolom nomor dan tombol kontak
         LinearLayout contactRow = new LinearLayout(this);
         contactRow.setOrientation(LinearLayout.HORIZONTAL);
         contactRow.setGravity(Gravity.CENTER_VERTICAL);
 
-        LinearLayout.LayoutParams contactRowLp = matchWrap();
-        contactRowLp.topMargin = dp(8);
-        card.addView(contactRow, contactRowLp);
-
         numberInput = new EditText(this);
         numberInput.setSingleLine(true);
-        numberInput.setTextSize(16);
         numberInput.setHint("Masukkan nomor tujuan");
         numberInput.setInputType(3);
+        numberInput.setTextSize(15);
+        numberInput.setPadding(dp(10), 0, dp(10), 0);
+        numberInput.setBackground(round(
+                Color.rgb(245, 247, 250), 10
+        ));
 
-        LinearLayout.LayoutParams inputLp =
-            new LinearLayout.LayoutParams(0, -2, 1);
+        LinearLayout.LayoutParams numberLp =
+                new LinearLayout.LayoutParams(0, dp(50), 1);
+        numberLp.rightMargin = dp(8);
+        contactRow.addView(numberInput, numberLp);
 
-        contactRow.addView(numberInput, inputLp);
-
-        Button contactButton = new Button(this);
-        contactButton.setText("Kontak");
-        contactButton.setTextColor(Color.WHITE);
-        contactButton.setAllCaps(false);
+        TextView contactButton = menuButton("Kontak");
         contactButton.setTextSize(13);
-        contactButton.setBackground(round(blue, 10));
 
         LinearLayout.LayoutParams contactLp =
-            new LinearLayout.LayoutParams(-2, dp(48));
-
-        contactLp.leftMargin = dp(8);
-
+                new LinearLayout.LayoutParams(dp(85), dp(50));
         contactRow.addView(contactButton, contactLp);
 
         contactButton.setOnClickListener(v -> pickContact());
 
-        TextView productLabel = text(
-            "Pilih Produk", 14, Color.DKGRAY, true
-        );
+        LinearLayout.LayoutParams contactRowLp = matchWrap();
+        contactRowLp.topMargin = dp(10);
+        card.addView(contactRow, contactRowLp);
 
-        LinearLayout.LayoutParams labelLp = matchWrap();
-        labelLp.topMargin = dp(20);
-        card.addView(productLabel, labelLp);
+        TextView productLabel = text(
+                "Pilih Produk",
+                15,
+                Color.BLACK,
+                true
+        );
+        LinearLayout.LayoutParams productLabelLp = matchWrap();
+        productLabelLp.topMargin = dp(20);
+        productLabelLp.bottomMargin = dp(8);
+        card.addView(productLabel, productLabelLp);
 
         productSpinner = new Spinner(this);
 
-        String[] products = getProducts(category);
-
         ArrayAdapter<String> adapter = new ArrayAdapter<>(
-            this,
-            android.R.layout.simple_spinner_dropdown_item,
-            products
+                this,
+                android.R.layout.simple_spinner_item,
+                getProducts(category)
+        );
+
+        adapter.setDropDownViewResource(
+                android.R.layout.simple_spinner_dropdown_item
         );
 
         productSpinner.setAdapter(adapter);
         card.addView(productSpinner, matchWrap());
 
-        Button buy = new Button(this);
-        buy.setText("LANJUTKAN TRANSAKSI");
-        buy.setTextColor(Color.WHITE);
-        buy.setAllCaps(false);
-        buy.setTextSize(15);
-        buy.setBackground(round(blue, 14));
-
+        TextView buyButton = menuButton("LANJUTKAN TRANSAKSI");
         LinearLayout.LayoutParams buyLp = matchWrap();
-        buyLp.topMargin = dp(24);
-        card.addView(buy, buyLp);
+        buyLp.topMargin = dp(22);
+        card.addView(buyButton, buyLp);
+
+        buyButton.setOnClickListener(v -> processTransaction());
 
         statusText = text(
-            "Transaksi belum dikirim ke server.",
-            13, Color.GRAY, false
+                "Status: Siap melakukan transaksi",
+                13,
+                Color.GRAY,
+                false
         );
 
         LinearLayout.LayoutParams statusLp = matchWrap();
         statusLp.topMargin = dp(15);
         card.addView(statusText, statusLp);
 
-        buy.setOnClickListener(v -> processTransaction());
+        page.addView(card, matchWrap());
 
-        form.addView(text(
-            "Catatan: Ini masih mode prototipe. Transaksi belum dikirim ke OtomaX.",
-            12, Color.GRAY, false
-        ), matchWrap());
-
-        setContentView(scroll);
-    }
-
-    // Membuka daftar kontak HP
-    private void pickContact() {
-
-        Intent intent = new Intent(
-            Intent.ACTION_PICK,
-            ContactsContract.CommonDataKinds.Phone.CONTENT_URI
+        TextView note = text(
+                "Catatan: Ini masih mode prototipe. Transaksi belum dikirim ke OtomaX.",
+                12,
+                Color.GRAY,
+                false
         );
 
-        startActivityForResult(intent, REQUEST_CONTACT);
+        LinearLayout.LayoutParams noteLp = matchWrap();
+        noteLp.topMargin = dp(15);
+        page.addView(note, noteLp);
+
+        setContentView(page);
     }
 
-    // Mengambil nomor dari kontak yang dipilih
+    private String[] getProducts(String category) {
+        switch (category) {
+            case "Pulsa":
+                return new String[]{
+                        "Pilih Pulsa",
+                        "Pulsa 5.000",
+                        "Pulsa 10.000",
+                        "Pulsa 15.000",
+                        "Pulsa 20.000",
+                        "Pulsa 25.000",
+                        "Pulsa 50.000",
+                        "Pulsa 100.000"
+                };
+
+            case "Paket Data":
+                return new String[]{
+                        "Pilih Paket Data",
+                        "Paket Data 1 GB",
+                        "Paket Data 2 GB",
+                        "Paket Data 3 GB",
+                        "Paket Data 5 GB",
+                        "Paket Data 10 GB",
+                        "Paket Data Unlimited"
+                };
+
+            case "Token PLN":
+                return new String[]{
+                        "Pilih Nominal Token",
+                        "Token 20.000",
+                        "Token 50.000",
+                        "Token 100.000",
+                        "Token 200.000",
+                        "Token 500.000",
+                        "Token 1.000.000"
+                };
+
+            case "Tagihan PLN":
+                return new String[]{
+                        "Pilih Layanan",
+                        "Tagihan PLN Pascabayar"
+                };
+
+            case "BPJS":
+                return new String[]{
+                        "Pilih Layanan",
+                        "BPJS Kesehatan"
+                };
+
+            case "PDAM":
+                return new String[]{
+                        "Pilih Layanan",
+                        "Tagihan PDAM"
+                };
+
+            case "E-Wallet":
+                return new String[]{
+                        "Pilih E-Wallet",
+                        "DANA",
+                        "OVO",
+                        "GoPay",
+                        "ShopeePay",
+                        "LinkAja"
+                };
+
+            case "Voucher Game":
+                return new String[]{
+                        "Pilih Game",
+                        "Mobile Legends",
+                        "Free Fire",
+                        "PUBG Mobile",
+                        "Valorant"
+                };
+
+            case "TV Kabel":
+                return new String[]{
+                        "Pilih Layanan",
+                        "IndiHome",
+                        "MNC Vision",
+                        "Transvision"
+                };
+
+            default:
+                return new String[]{"Pilih Produk"};
+        }
+    }
+
+    private void pickContact() {
+        try {
+            Intent intent = new Intent(
+                    Intent.ACTION_PICK,
+                    ContactsContract.CommonDataKinds.Phone.CONTENT_URI
+            );
+            startActivityForResult(intent, REQUEST_CONTACT);
+        } catch (Exception e) {
+            showMessage("Kontak", "Tidak dapat membuka daftar kontak.");
+        }
+    }
+
     @Override
     protected void onActivityResult(
-        int requestCode,
-        int resultCode,
-        Intent data
+            int requestCode,
+            int resultCode,
+            Intent data
     ) {
         super.onActivityResult(requestCode, resultCode, data);
 
         if (requestCode == REQUEST_CONTACT
-            && resultCode == RESULT_OK
-            && data != null) {
+                && resultCode == RESULT_OK
+                && data != null) {
 
             Cursor cursor = null;
 
             try {
                 cursor = getContentResolver().query(
-                    data.getData(),
-                    new String[]{
-                        ContactsContract.CommonDataKinds.Phone.NUMBER
-                    },
-                    null,
-                    null,
-                    null
+                        data.getData(),
+                        new String[]{
+                                ContactsContract.CommonDataKinds.Phone.NUMBER
+                        },
+                        null,
+                        null,
+                        null
                 );
 
                 if (cursor != null && cursor.moveToFirst()) {
+                    String phone = cursor.getString(0);
 
-                    int index = cursor.getColumnIndex(
-                        ContactsContract.CommonDataKinds.Phone.NUMBER
-                    );
-
-                    if (index >= 0) {
-                        String phone = cursor.getString(index);
-
-                        if (phone != null) {
-                            numberInput.setText(phone.trim());
-                            numberInput.setSelection(
-                                numberInput.getText().length()
-                            );
-                        }
+                    if (numberInput != null) {
+                        numberInput.setText(phone);
                     }
                 }
 
             } catch (Exception e) {
-                showMessage(
-                    "Kontak",
-                    "Tidak dapat membaca nomor kontak."
-                );
+                showMessage("Kontak", "Gagal mengambil nomor kontak.");
             } finally {
                 if (cursor != null) {
                     cursor.close();
@@ -362,154 +411,97 @@ public class MainActivity extends Activity {
         }
     }
 
-    private String[] getProducts(String category) {
-
-        switch (category) {
-
-            case "Pulsa":
-                return new String[]{
-                    "Pilih Nominal",
-                    "Pulsa 5.000",
-                    "Pulsa 10.000",
-                    "Pulsa 15.000",
-                    "Pulsa 20.000",
-                    "Pulsa 25.000",
-                    "Pulsa 50.000",
-                    "Pulsa 100.000"
-                };
-
-            case "Paket Data":
-                return new String[]{
-                    "Pilih Operator / Paket",
-                    "Telkomsel",
-                    "Indosat",
-                    "XL",
-                    "Axis",
-                    "Tri",
-                    "Smartfren"
-                };
-
-            case "Token PLN":
-                return new String[]{
-                    "Pilih Nominal",
-                    "Token 20.000",
-                    "Token 50.000",
-                    "Token 100.000",
-                    "Token 200.000",
-                    "Token 500.000",
-                    "Token 1.000.000"
-                };
-
-            case "Tagihan PLN":
-                return new String[]{"Tagihan PLN Pascabayar"};
-
-            case "BPJS":
-                return new String[]{"Tagihan BPJS Kesehatan"};
-
-            case "PDAM":
-                return new String[]{"Tagihan PDAM"};
-
-            case "E-Wallet":
-                return new String[]{
-                    "Pilih E-Wallet",
-                    "DANA",
-                    "OVO",
-                    "GoPay",
-                    "ShopeePay"
-                };
-
-            case "Voucher Game":
-                return new String[]{
-                    "Pilih Game",
-                    "Mobile Legends",
-                    "Free Fire",
-                    "PUBG Mobile",
-                    "Google Play"
-                };
-
-            case "TV Kabel":
-                return new String[]{"Tagihan TV Kabel"};
-
-            default:
-                return new String[]{"Pilih Produk"};
-        }
-    }
-
     private void processTransaction() {
-
         String number = numberInput.getText().toString().trim();
-        int selected = productSpinner.getSelectedItemPosition();
-
-        if (number.length() < 5 || number.length() > 20) {
-            numberInput.setError("Periksa nomor tujuan.");
-            return;
-        }
-
-        if (selected == 0 &&
-            (selectedCategory.equals("Pulsa")
-            || selectedCategory.equals("Paket Data")
-            || selectedCategory.equals("Token PLN")
-            || selectedCategory.equals("E-Wallet")
-            || selectedCategory.equals("Voucher Game"))) {
-
-            statusText.setText("Silakan pilih produk terlebih dahulu.");
-            return;
-        }
-
         String product = productSpinner.getSelectedItem().toString();
 
+        if (number.isEmpty()) {
+            showMessage("Perhatian", "Masukkan nomor tujuan terlebih dahulu.");
+            return;
+        }
+
+        if (number.length() < 5 || number.length() > 20) {
+            showMessage("Perhatian", "Periksa kembali nomor tujuan.");
+            return;
+        }
+
+        if (product.startsWith("Pilih")) {
+            showMessage("Perhatian", "Silakan pilih produk terlebih dahulu.");
+            return;
+        }
+
         statusText.setText(
-            "Data siap: " + selectedCategory
-            + "\nTujuan: " + number
-            + "\nProduk: " + product
-            + "\n\nBelum dikirim ke OtomaX. Menunggu integrasi API."
+                "Data siap diproses.\nNomor: " + number
+                        + "\nProduk: " + product
+                        + "\n\nBelum dikirim ke server OtomaX."
         );
     }
 
-    private void showMessage(String title, String message) {
-
-        new android.app.AlertDialog.Builder(this)
-            .setTitle(title)
-            .setMessage(message)
-            .setPositiveButton("OK", null)
-            .show();
+    private TextView menuButton(String value) {
+        TextView button = text(value, 15, blue, true);
+        button.setGravity(Gravity.CENTER);
+        button.setPadding(dp(10), dp(10), dp(10), dp(10));
+        button.setBackground(round(Color.WHITE, 12));
+        return button;
     }
 
     private TextView text(
-        String value,
-        int size,
-        int color,
-        boolean bold
+            String value,
+            int size,
+            int color,
+            boolean bold
     ) {
-
-        TextView t = new TextView(this);
-        t.setText(value);
-        t.setTextSize(size);
-        t.setTextColor(color);
+        TextView view = new TextView(this);
+        view.setText(value);
+        view.setTextSize(size);
+        view.setTextColor(color);
 
         if (bold) {
-            t.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
+            view.setTypeface(null, Typeface.BOLD);
         }
 
-        return t;
+        return view;
     }
 
     private GradientDrawable round(int color, int radius) {
-
-        GradientDrawable d = new GradientDrawable();
-        d.setColor(color);
-        d.setCornerRadius(dp(radius));
-
-        return d;
+        GradientDrawable drawable = new GradientDrawable();
+        drawable.setColor(color);
+        drawable.setCornerRadius(dp(radius));
+        return drawable;
     }
 
     private LinearLayout.LayoutParams matchWrap() {
-        return new LinearLayout.LayoutParams(-1, -2);
+        return new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+        );
     }
 
     private int dp(int value) {
         return (int) (
-            value * getResources().getDisplayMetrics().density + 0.5f
+                value * getResources().getDisplayMetrics().density
         );
+    }
+
+    private void showMessage(String title, String message) {
+        new AlertDialog.Builder(this)
+                .setTitle(title)
+                .setMessage(message)
+                .setPositiveButton("OK", null)
+                .show();
+    }
+
+    @Override
+    public void onBackPressed() {
+        if (selectedCategory != null) {
+            showHome();
+        } else {
+            new AlertDialog.Builder(this)
+                    .setTitle("Keluar Aplikasi")
+                    .setMessage("Yakin ingin keluar dari aplikasi?")
+                    .setNegativeButton("Tidak", null)
+                    .setPositiveButton("Ya", (dialog, which) -> finish())
+                    .show();
+        }
     }
 }
