@@ -44,6 +44,7 @@ public class MainActivity extends Activity {
     private ArrayList<JSONObject> categoryProducts = new ArrayList<>();
     private boolean renderingProducts = false;
     private double saldoValue = 0;
+    private final ArrayList<String> depositTickets = new ArrayList<>();
     private final String[] categories = {"Pulsa", "Paket Data", "Token PLN", "Telepon & SMS", "Voucher Data", "Masa Aktif", "Paket Terbaik", "Game", "Kirim Uang", "Kartu Perdana", "Layanan Digital"};
     private final String[] icons = {"📱", "🌐", "💡", "☎", "🎟", "🗓", "🏷", "🎮", "💸", "💳", "🛒"};
 
@@ -79,6 +80,8 @@ public class MainActivity extends Activity {
         LinearLayout promoTxt = new LinearLayout(this); promoTxt.setOrientation(LinearLayout.VERTICAL); TextView p1=tv("Produk Nasyah Cell",21,Color.WHITE,true); TextView p2=tv("Pulsa, paket data dan PPOB",13,Color.WHITE,false); promoTxt.addView(p1); promoTxt.addView(p2); promo.addView(promoTxt,new LinearLayout.LayoutParams(0,-2,1)); promo.addView(tv("📱",42,Color.WHITE,true)); body.addView(promo,lp(-1,110));
         LinearLayout balance = new LinearLayout(this); balance.setOrientation(LinearLayout.VERTICAL); balance.setPadding(dp(16),dp(14),dp(16),dp(14)); balance.setBackground(bg(Color.WHITE,14)); LinearLayout.LayoutParams blp=lp(-1,-2); blp.topMargin=dp(16); body.addView(balance,blp);
         TextView btitle=tv("SALDO ANDA",14,Color.GRAY,true); balance.addView(btitle); saldoText=tv("Memuat saldo...",22,Color.BLACK,true); LinearLayout.LayoutParams slp=lp(-1,-2); slp.topMargin=dp(6); balance.addView(saldoText,slp);
+        LinearLayout balanceActions = new LinearLayout(this); balanceActions.setGravity(Gravity.CENTER_VERTICAL); LinearLayout.LayoutParams bap=lp(-1,42); bap.topMargin=dp(12); balance.addView(balanceActions,bap);
+        TextView addBalance=tv("⊕  Isi Saldo",14,Color.WHITE,true); addBalance.setGravity(Gravity.CENTER); addBalance.setBackground(bg(DARK,8)); balanceActions.addView(addBalance,new LinearLayout.LayoutParams(0,-1,1)); addBalance.setOnClickListener(v->showDeposit());
         TextView section=tv("Pilih Layanan",19,Color.BLACK,true); LinearLayout.LayoutParams stp=lp(-1,-2); stp.topMargin=dp(22); body.addView(section,stp);
         for(int i=0;i<categories.length;i+=3){ LinearLayout row=new LinearLayout(this); row.setGravity(Gravity.TOP); for(int j=i;j<Math.min(i+3,categories.length);j++) addCategory(row,j); LinearLayout.LayoutParams rlp=lp(-1,-2); rlp.topMargin=dp(15); body.addView(row,rlp); }
         root.addView(scroll,new LinearLayout.LayoutParams(-1,0,1)); TextView bottom=tv("Kontak CS          Riwayat          QRIS          Akun",12,Color.DKGRAY,true); bottom.setGravity(Gravity.CENTER); bottom.setBackgroundColor(Color.WHITE); bottom.setPadding(0,dp(15),0,dp(15)); root.addView(bottom,lp(-1,-2)); setContentView(root); loadSaldo();
@@ -86,6 +89,36 @@ public class MainActivity extends Activity {
     private void addCategory(LinearLayout row,int i){
         LinearLayout cell=new LinearLayout(this); cell.setOrientation(LinearLayout.VERTICAL); cell.setGravity(Gravity.CENTER); cell.setPadding(dp(4),dp(8),dp(4),dp(8));
         TextView ico=tv(icons[i],30,RED,true); ico.setGravity(Gravity.CENTER); ico.setBackground(bg(Color.WHITE,16)); cell.addView(ico,lp(72,68)); TextView name=tv(categories[i],12,Color.BLACK,true); name.setGravity(Gravity.CENTER); name.setMaxLines(2); LinearLayout.LayoutParams nlp=lp(-1,-2); nlp.topMargin=dp(7); cell.addView(name,nlp); row.addView(cell,new LinearLayout.LayoutParams(0,-2,1)); cell.setOnClickListener(v->showProducts(categories[i]));
+    }
+
+
+    private void showDeposit(){
+        selectedCategory="DEPOSIT";
+        LinearLayout page=new LinearLayout(this); page.setOrientation(LinearLayout.VERTICAL); page.setBackgroundColor(Color.WHITE);
+        LinearLayout header=new LinearLayout(this); header.setGravity(Gravity.CENTER_VERTICAL); header.setPadding(dp(14),dp(10),dp(14),dp(10)); header.setBackgroundColor(RED);
+        TextView home=tv("⌂",27,Color.WHITE,true); home.setGravity(Gravity.CENTER); header.addView(home,lp(42,42)); home.setOnClickListener(v->showHome());
+        TextView title=tv("NASYAH CELL",18,Color.WHITE,true); LinearLayout.LayoutParams tlp=new LinearLayout.LayoutParams(0,dp(42),1); header.addView(title,tlp);
+        TextView refresh=tv("⟳",27,Color.WHITE,true); refresh.setGravity(Gravity.CENTER); header.addView(refresh,lp(42,42)); refresh.setOnClickListener(v->message("Deposit","Daftar tiket yang tampil adalah tiket pratinjau lokal.")); page.addView(header);
+        ScrollView scroll=new ScrollView(this); LinearLayout body=new LinearLayout(this); body.setOrientation(LinearLayout.VERTICAL); body.setPadding(dp(10),dp(18),dp(10),dp(24)); scroll.addView(body);
+        TextView heading=tv("Tambah Saldo",17,Color.WHITE,true); heading.setGravity(Gravity.CENTER_VERTICAL); heading.setPadding(dp(10),0,0,0); heading.setBackgroundColor(RED); body.addView(heading,lp(-1,48));
+        TextView info=tv("\"TIDAK MENERIMA TF MELALUI MESIN EDC, NEKAT SALDO TIDAK AKAN BISA DIGUNAKAN.\"\n\nMohon sebelum transfer cek dulu nama dan rekening bank dan nominal. Tambah saldo otomatis masuk jika sesuai nominal.\n\nOPEN DEPOSIT jam 06.00 - 21.00 WIB.",13,Color.rgb(35,65,75),false);
+        LinearLayout.LayoutParams ilp=lp(-1,-2); ilp.topMargin=dp(28); ilp.bottomMargin=dp(22); info.setPadding(dp(5),0,dp(5),0); body.addView(info,ilp);
+        TextView ticketButton=tv("TIKET TAMBAH SALDO",15,Color.WHITE,true); ticketButton.setGravity(Gravity.CENTER); ticketButton.setBackground(bg(DARK,4)); body.addView(ticketButton,lp(-1,44));
+        LinearLayout form=new LinearLayout(this); form.setOrientation(LinearLayout.VERTICAL); LinearLayout.LayoutParams flp=lp(-1,-2); flp.topMargin=dp(22); body.addView(form,flp);
+        TextView silakan=tv("Silakan Isi",14,DARK,true); form.addView(silakan);
+        TextView nominalLabel=tv("Nominal",13,Color.DKGRAY,false); LinearLayout.LayoutParams nlab=lp(-1,-2); nlab.topMargin=dp(20); form.addView(nominalLabel,nlab);
+        EditText nominal=new EditText(this); nominal.setSingleLine(true); nominal.setInputType(2); nominal.setHint("Masukkan nominal deposit"); nominal.setTextSize(15); nominal.setPadding(dp(10),0,dp(10),0); nominal.setBackground(bg(Color.WHITE,5)); nominal.setBackgroundTintList(android.content.res.ColorStateList.valueOf(DARK)); LinearLayout.LayoutParams nip=lp(-1,46); nip.topMargin=dp(10); form.addView(nominal,nip);
+        LinearLayout buttons=new LinearLayout(this); LinearLayout.LayoutParams btnp=lp(-1,44); btnp.topMargin=dp(22); form.addView(buttons,btnp);
+        TextView send=tv("KIRIM",14,Color.WHITE,true); send.setGravity(Gravity.CENTER); send.setBackground(bg(DARK,4)); buttons.addView(send,new LinearLayout.LayoutParams(0,-1,1));
+        TextView cancel=tv("CANCEL",14,Color.WHITE,true); cancel.setGravity(Gravity.CENTER); cancel.setBackground(bg(RED,4)); LinearLayout.LayoutParams cap=lp(-1,-1); cap.leftMargin=dp(5); buttons.addView(cancel,new LinearLayout.LayoutParams(0,-1,1));
+        TextView ticketListTitle=tv("Daftar Tiket Deposit",14,Color.BLACK,true); LinearLayout.LayoutParams ttp=lp(-1,-2); ttp.topMargin=dp(28); body.addView(ticketListTitle,ttp);
+        LinearLayout ticketList=new LinearLayout(this); ticketList.setOrientation(LinearLayout.VERTICAL); LinearLayout.LayoutParams tlistp=lp(-1,-2); tlistp.topMargin=dp(8); body.addView(ticketList,tlistp);
+        Runnable updateTickets=()->{ticketList.removeAllViews(); if(depositTickets.isEmpty()){ticketList.addView(tv("Tidak ada data.",13,Color.DKGRAY,false));}else{for(String item:depositTickets){TextView row=tv(item,13,Color.DKGRAY,false);row.setPadding(dp(10),dp(12),dp(10),dp(12));row.setBackground(bg(BG,5));LinearLayout.LayoutParams rlp=lp(-1,-2);rlp.bottomMargin=dp(6);ticketList.addView(row,rlp);}}};
+        updateTickets.run(); form.setVisibility(View.GONE);
+        ticketButton.setOnClickListener(v->{form.setVisibility(form.getVisibility()==View.VISIBLE?View.GONE:View.VISIBLE);});
+        cancel.setOnClickListener(v->{nominal.setText("");form.setVisibility(View.GONE);});
+        send.setOnClickListener(v->{String value=nominal.getText().toString().trim(); if(value.isEmpty()){message("Nominal","Masukkan nominal deposit.");return;} try{long amount=Long.parseLong(value);if(amount<10000){message("Nominal","Minimal deposit Rp10.000.");return;}String ticket="Deposit "+rupiah(amount)+" • MENUNGGU VERIFIKASI (PRATINJAU)";depositTickets.add(0,ticket);updateTickets.run();nominal.setText("");form.setVisibility(View.GONE);message("Tiket dibuat",ticket+"\n\nIni baru tersimpan sementara di aplikasi. Belum ada pembayaran atau penambahan saldo otomatis.");}catch(Exception ex){message("Nominal","Nominal tidak valid.");}});
+        page.addView(scroll,new LinearLayout.LayoutParams(-1,0,1)); setContentView(page);
     }
 
     private void loadSaldo(){ new Thread(()->{ HttpURLConnection c=null; try{ JSONObject j=getJson(SERVER_URL+"/api/saldo"); double s=j.optDouble("saldo",0); runOnUiThread(()->{saldoValue=s;if(saldoText!=null)saldoText.setText(rupiah(s));}); }catch(Exception e){runOnUiThread(()->{if(saldoText!=null)saldoText.setText("Saldo tidak dapat dimuat");});} }).start(); }
