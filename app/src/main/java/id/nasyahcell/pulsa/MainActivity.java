@@ -41,7 +41,7 @@ public class MainActivity extends Activity {
             "https://hong-processed-transcription-ideal.trycloudflare.com";
 
     // Isi dengan API key yang sama persis seperti di config.json server.
-    private static final String API_KEY = "GANTI_DENGAN_API_KEY_CONFIG_JSON";
+    private static final String API_KEY = "NasyahCell-2026-KunciRahasia-73921";
 
     private EditText numberInput;
     private Spinner productSpinner;
