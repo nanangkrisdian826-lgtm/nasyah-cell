@@ -14,8 +14,14 @@ import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.*;
+
+import org.json.JSONObject;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+import java.text.NumberFormat;
+import java.util.Locale;
 
 public class MainActivity extends Activity {
 
@@ -27,6 +33,15 @@ public class MainActivity extends Activity {
     private LinearLayout root;
     private LinearLayout content;
     private TextView balanceText;
+    private TextView saldoAmountText;
+    private double saldoOtomax = 0;
+
+    // Sesuaikan URL ini jika alamat Cloudflare Tunnel sudah berubah.
+    private static final String SERVER_URL =
+            "https://cheque-nasa-opening-rating.trycloudflare.com";
+
+    // Isi dengan API key yang sama persis seperti di config.json server.
+    private static final String API_KEY = "GANTI_DENGAN_API_KEY_CONFIG_JSON";
 
     private EditText numberInput;
     private Spinner productSpinner;
@@ -97,7 +112,7 @@ public class MainActivity extends Activity {
                 "NASYAH CELL", "Selamat datang di layanan Nasyah Cell."
         ));
 
-        refresh.setOnClickListener(v -> cekKoneksiServer());
+        refresh.setOnClickListener(v -> ambilSaldo());
 
         more.setOnClickListener(v -> showMoreMenu(v));
 
@@ -227,7 +242,8 @@ public class MainActivity extends Activity {
 
         eye.setOnClickListener(v -> {
             saldoVisible = !saldoVisible;
-            balanceText.setText(saldoVisible ? "Rp 0" : "******");
+            String nominal = formatRupiah(saldoOtomax);
+            balanceText.setText(saldoVisible ? nominal : "******");
         });
 
         saldoCard.addView(saldoTop);
@@ -240,13 +256,13 @@ public class MainActivity extends Activity {
         saldoBottom.setGravity(Gravity.CENTER);
         saldoBottom.setOrientation(LinearLayout.HORIZONTAL);
 
-        TextView saldoAmount = text("💰  0", 17, Color.BLACK, false);
-        saldoAmount.setGravity(Gravity.CENTER);
+        saldoAmountText = text("💰  Rp 0", 17, Color.BLACK, false);
+        saldoAmountText.setGravity(Gravity.CENTER);
 
         TextView deposit = text("➕ Isi Saldo", 17, Color.BLACK, false);
         deposit.setGravity(Gravity.CENTER);
 
-        saldoBottom.addView(saldoAmount,
+        saldoBottom.addView(saldoAmountText,
                 new LinearLayout.LayoutParams(0, dp(54), 1));
 
         View divider = new View(this);
@@ -332,6 +348,71 @@ public class MainActivity extends Activity {
         addBottomNavigation();
 
         setContentView(root);
+        ambilSaldo(); // Ambil saldo otomatis saat halaman utama dibuka.
+    }
+
+    private String formatRupiah(double nilai) {
+        return "Rp " + NumberFormat.getNumberInstance(new Locale("id", "ID"))
+                .format(nilai);
+    }
+
+    private void ambilSaldo() {
+        new Thread(() -> {
+            HttpURLConnection conn = null;
+            try {
+                URL url = new URL(SERVER_URL + "/api/saldo");
+                conn = (HttpURLConnection) url.openConnection();
+                conn.setRequestMethod("GET");
+                conn.setConnectTimeout(15000);
+                conn.setReadTimeout(15000);
+                conn.setRequestProperty("X-API-Key", API_KEY);
+
+                int code = conn.getResponseCode();
+                java.io.InputStream stream = (code >= 200 && code < 300)
+                        ? conn.getInputStream() : conn.getErrorStream();
+                if (stream == null) {
+                    throw new Exception("Server tidak mengirim respons (HTTP " + code + ")");
+                }
+
+                BufferedReader reader = new BufferedReader(new InputStreamReader(stream, "UTF-8"));
+                StringBuilder response = new StringBuilder();
+                String line;
+                while ((line = reader.readLine()) != null) response.append(line);
+                reader.close();
+
+                if (code != 200) {
+                    throw new Exception("HTTP " + code + ": " + response);
+                }
+
+                JSONObject json = new JSONObject(response.toString());
+                double saldo;
+                if (json.has("saldo")) {
+                    saldo = json.getDouble("saldo");
+                } else if (json.has("data") && json.optJSONObject("data") != null
+                        && json.getJSONObject("data").has("saldo")) {
+                    saldo = json.getJSONObject("data").getDouble("saldo");
+                } else {
+                    throw new Exception("Field saldo tidak ditemukan dalam respons server: " + response);
+                }
+
+                runOnUiThread(() -> {
+                    saldoOtomax = saldo;
+                    String nominal = formatRupiah(saldo);
+                    if (balanceText != null) {
+                        balanceText.setText(saldoVisible ? nominal : "******");
+                    }
+                    if (saldoAmountText != null) {
+                        saldoAmountText.setText("💰  " + nominal);
+                    }
+                    Toast.makeText(this, "Saldo OtomaX berhasil diperbarui", Toast.LENGTH_SHORT).show();
+                });
+            } catch (Exception e) {
+                runOnUiThread(() -> showMessage("Gagal mengambil saldo",
+                        e.getMessage() == null ? "Periksa koneksi server dan API." : e.getMessage()));
+            } finally {
+                if (conn != null) conn.disconnect();
+            }
+        }).start();
     }
 
     private void addProductItem(LinearLayout row, int index) {
@@ -814,36 +895,6 @@ public class MainActivity extends Activity {
                 .setMessage(message)
                 .setPositiveButton("OK", null)
                 .show();
-    }
-
-
-    // Menguji koneksi APK ke server NASYAH CELL.
-    private void cekKoneksiServer() {
-        new Thread(() -> {
-            HttpURLConnection conn = null;
-            try {
-                URL url = new URL("https://traditional-clip-savings-abs.trycloudflare.com/");
-                conn = (HttpURLConnection) url.openConnection();
-                conn.setRequestMethod("GET");
-                conn.setConnectTimeout(10000);
-                conn.setReadTimeout(10000);
-                int response = conn.getResponseCode();
-
-                runOnUiThread(() -> showMessage(
-                        "Koneksi NASYAH CELL",
-                        response == 200
-                                ? "Server NASYAH CELL berhasil dihubungi."
-                                : "Server merespons dengan kode: " + response
-                ));
-            } catch (Exception e) {
-                runOnUiThread(() -> showMessage(
-                        "Koneksi Gagal",
-                        "Tidak dapat menghubungi server. Pastikan server dan Cloudflare Tunnel masih aktif."
-                ));
-            } finally {
-                if (conn != null) conn.disconnect();
-            }
-        }).start();
     }
 
     @Override
