@@ -32,7 +32,7 @@ public class MainActivity extends Activity {
     private static final int BG = Color.rgb(245, 246, 248);
     private static final String SERVER_URL = "https://charming-antarctica-cat-gmbh.trycloudflare.com";
     // Ganti nilai ini dengan API key dari config.json di PC. Jangan kirim key ke orang lain.
-    private static final String API_KEY = "NasyahCell-2026-KunciRahasia-73921";
+    private static final String API_KEY = "GANTI_DENGAN_API_KEY_CONFIG_JSON";
     private static final int REQUEST_CONTACT = 1001;
 
     private LinearLayout root, productList;
