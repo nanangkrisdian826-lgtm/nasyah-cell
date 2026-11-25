@@ -16,6 +16,8 @@ import android.view.ViewGroup;
 import android.widget.*;
 
 import org.json.JSONObject;
+import org.json.JSONArray;
+import java.util.ArrayList;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.io.BufferedReader;
@@ -46,6 +48,8 @@ public class MainActivity extends Activity {
     private EditText numberInput;
     private Spinner productSpinner;
     private TextView statusText;
+    private final ArrayList<JSONObject> daftarProduk = new ArrayList<>();
+    private ArrayAdapter<String> productAdapter;
 
     private boolean saldoVisible = false;
     private String selectedCategory = null;
@@ -591,18 +595,20 @@ public class MainActivity extends Activity {
 
         productSpinner = new Spinner(this);
 
-        ArrayAdapter<String> adapter = new ArrayAdapter<>(
+        productAdapter = new ArrayAdapter<>(
                 this,
                 android.R.layout.simple_spinner_item,
-                getProducts(category)
+                new ArrayList<String>()
         );
-
-        adapter.setDropDownViewResource(
+        productAdapter.setDropDownViewResource(
                 android.R.layout.simple_spinner_dropdown_item
         );
-
-        productSpinner.setAdapter(adapter);
+        productSpinner.setAdapter(productAdapter);
+        productAdapter.add("Memuat daftar produk...");
         card.addView(productSpinner);
+
+        // Mengambil daftar produk dan harga dari OtomaX melalui server.
+        loadProducts(category);
 
         TextView buy = button("LANJUTKAN TRANSAKSI");
         LinearLayout.LayoutParams buyLp = wrap();
@@ -633,88 +639,100 @@ public class MainActivity extends Activity {
         buy.setOnClickListener(v -> processTransaction());
     }
 
-    private String[] getProducts(String category) {
-        switch (category) {
-            case "Pulsa":
-                return new String[]{
-                        "Pilih Pulsa", "Pulsa 5.000", "Pulsa 10.000",
-                        "Pulsa 15.000", "Pulsa 20.000",
-                        "Pulsa 25.000", "Pulsa 50.000",
-                        "Pulsa 100.000"
-                };
+    private void loadProducts(String category) {
+        daftarProduk.clear();
 
-            case "Paket Data":
-                return new String[]{
-                        "Pilih Paket Data", "Paket Data 1 GB",
-                        "Paket Data 2 GB", "Paket Data 3 GB",
-                        "Paket Data 5 GB", "Paket Data 10 GB"
-                };
+        new Thread(() -> {
+            HttpURLConnection conn = null;
+            try {
+                URL url = new URL(SERVER_URL + "/api/produk");
+                conn = (HttpURLConnection) url.openConnection();
+                conn.setRequestMethod("GET");
+                conn.setConnectTimeout(15000);
+                conn.setReadTimeout(20000);
+                conn.setRequestProperty("X-API-Key", API_KEY);
 
-            case "Token PLN":
-                return new String[]{
-                        "Pilih Token", "Token 20.000",
-                        "Token 50.000", "Token 100.000",
-                        "Token 200.000", "Token 500.000"
-                };
+                int code = conn.getResponseCode();
+                java.io.InputStream stream = (code >= 200 && code < 300)
+                        ? conn.getInputStream() : conn.getErrorStream();
+                if (stream == null) {
+                    throw new Exception("Server tidak mengirim respons (HTTP " + code + ")");
+                }
 
-            case "Telepon & SMS":
-                return new String[]{
-                        "Pilih Produk", "Paket Telepon",
-                        "Paket SMS"
-                };
+                BufferedReader reader = new BufferedReader(
+                        new InputStreamReader(stream, "UTF-8"));
+                StringBuilder response = new StringBuilder();
+                String line;
+                while ((line = reader.readLine()) != null) response.append(line);
+                reader.close();
 
-            case "Voucher Data":
-                return new String[]{
-                        "Pilih Voucher", "Voucher Data 1 GB",
-                        "Voucher Data 2 GB", "Voucher Data 5 GB"
-                };
+                if (code != 200) throw new Exception("HTTP " + code + ": " + response);
 
-            case "Masa Aktif":
-                return new String[]{
-                        "Pilih Masa Aktif", "Masa Aktif 7 Hari",
-                        "Masa Aktif 30 Hari"
-                };
+                JSONObject json = new JSONObject(response.toString());
+                JSONArray items = json.optJSONArray("produk");
+                if (items == null) throw new Exception("Data 'produk' tidak ditemukan.");
 
-            case "Paket Terbaik":
-                return new String[]{
-                        "Pilih Paket", "Paket Internet",
-                        "Paket Combo"
-                };
+                ArrayList<JSONObject> hasil = new ArrayList<>();
+                for (int i = 0; i < items.length(); i++) {
+                    JSONObject item = items.optJSONObject(i);
+                    if (item == null) continue;
+                    String kategoriDb = item.optString("kategori", "").trim();
+                    if (kategoriDb.equalsIgnoreCase(category)) hasil.add(item);
+                }
 
-            case "Game":
-                return new String[]{
-                        "Pilih Game", "Mobile Legends",
-                        "Free Fire", "PUBG Mobile",
-                        "Valorant"
-                };
+                runOnUiThread(() -> {
+                    daftarProduk.clear();
+                    daftarProduk.addAll(hasil);
+                    productAdapter.clear();
 
-            case "Kirim Uang":
-                return new String[]{
-                        "Pilih Layanan", "Transfer Uang"
-                };
+                    if (hasil.isEmpty()) {
+                        productAdapter.add("Produk kategori " + category + " belum tersedia");
+                        if (statusText != null) {
+                            statusText.setText("Tidak ada produk dengan Catatan Provider = "
+                                    + category + ". Periksa kolom Catatan di OtomaX.");
+                        }
+                    } else {
+                        productAdapter.add("Pilih Produk (" + hasil.size() + ")");
+                        for (JSONObject item : hasil) {
+                            String nama = item.optString("nama_produk", "Produk");
+                            String nominal = item.optString("nominal", "");
+                            String harga = formatRupiah(item.optDouble("harga_jual", 0));
+                            String label = nama;
+                            if (!nominal.isEmpty() && !nominal.equals("null")) {
+                                label += " - " + nominal;
+                            }
+                            productAdapter.add(label + " | " + harga);
+                        }
+                        if (statusText != null) {
+                            statusText.setText("Daftar produk berhasil dimuat dari OtomaX.");
+                        }
+                    }
+                    productAdapter.notifyDataSetChanged();
+                });
 
-            case "Kartu Perdana":
-                return new String[]{
-                        "Pilih Kartu", "Kartu Perdana"
-                };
-
-            case "Layanan Digital":
-                return new String[]{
-                        "Pilih Layanan", "Layanan Digital"
-                };
-
-            case "Tagihan PLN":
-                return new String[]{
-                        "Pilih Layanan", "PLN Pascabayar"
-                };
-
-            default:
-                return new String[]{"Pilih Produk"};
-        }
+            } catch (Exception e) {
+                runOnUiThread(() -> {
+                    productAdapter.clear();
+                    productAdapter.add("Gagal memuat produk");
+                    productAdapter.notifyDataSetChanged();
+                    if (statusText != null) {
+                        statusText.setText("Gagal memuat produk: "
+                                + (e.getMessage() == null ? "Periksa server/API." : e.getMessage()));
+                    }
+                });
+            } finally {
+                if (conn != null) conn.disconnect();
+            }
+        }).start();
     }
 
     private void processTransaction() {
         String number = numberInput.getText().toString().trim();
+        if (productSpinner.getSelectedItem() == null) {
+            showMessage("Perhatian", "Daftar produk belum tersedia.");
+            return;
+        }
+        int selectedIndex = productSpinner.getSelectedItemPosition();
         String product = productSpinner.getSelectedItem().toString();
 
         if (number.isEmpty()) {
@@ -727,15 +745,20 @@ public class MainActivity extends Activity {
             return;
         }
 
-        if (product.startsWith("Pilih")) {
-            showMessage("Perhatian", "Silakan pilih produk.");
+        if (selectedIndex <= 0 || daftarProduk.isEmpty()
+                || selectedIndex - 1 >= daftarProduk.size()) {
+            showMessage("Perhatian", "Silakan pilih produk yang tersedia.");
             return;
         }
 
+        JSONObject produkDipilih = daftarProduk.get(selectedIndex - 1);
+        String kodeProduk = produkDipilih.optString("kode_produk", "");
+
         statusText.setText(
-                "Data siap diproses\nNomor: " + number
-                        + "\nProduk: " + product
-                        + "\n\nBelum dikirim ke OtomaX."
+                "Data siap diproses\\nNomor: " + number
+                        + "\\nProduk: " + product
+                        + "\\nKode produk: " + kodeProduk
+                        + "\\n\\nBelum dikirim ke OtomaX."
         );
     }
 
