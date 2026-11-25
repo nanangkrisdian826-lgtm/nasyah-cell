@@ -14,6 +14,8 @@ import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.*;
+import java.net.HttpURLConnection;
+import java.net.URL;
 
 public class MainActivity extends Activity {
 
@@ -95,9 +97,7 @@ public class MainActivity extends Activity {
                 "NASYAH CELL", "Selamat datang di layanan Nasyah Cell."
         ));
 
-        refresh.setOnClickListener(v -> showMessage(
-                "Refresh", "Saldo dan data akan diperbarui setelah terhubung ke server."
-        ));
+        refresh.setOnClickListener(v -> cekKoneksiServer());
 
         more.setOnClickListener(v -> showMoreMenu(v));
 
@@ -814,6 +814,36 @@ public class MainActivity extends Activity {
                 .setMessage(message)
                 .setPositiveButton("OK", null)
                 .show();
+    }
+
+
+    // Menguji koneksi APK ke server NASYAH CELL.
+    private void cekKoneksiServer() {
+        new Thread(() -> {
+            HttpURLConnection conn = null;
+            try {
+                URL url = new URL("https://traditional-clip-savings-abs.trycloudflare.com/");
+                conn = (HttpURLConnection) url.openConnection();
+                conn.setRequestMethod("GET");
+                conn.setConnectTimeout(10000);
+                conn.setReadTimeout(10000);
+                int response = conn.getResponseCode();
+
+                runOnUiThread(() -> showMessage(
+                        "Koneksi NASYAH CELL",
+                        response == 200
+                                ? "Server NASYAH CELL berhasil dihubungi."
+                                : "Server merespons dengan kode: " + response
+                ));
+            } catch (Exception e) {
+                runOnUiThread(() -> showMessage(
+                        "Koneksi Gagal",
+                        "Tidak dapat menghubungi server. Pastikan server dan Cloudflare Tunnel masih aktif."
+                ));
+            } finally {
+                if (conn != null) conn.disconnect();
+            }
+        }).start();
     }
 
     @Override
