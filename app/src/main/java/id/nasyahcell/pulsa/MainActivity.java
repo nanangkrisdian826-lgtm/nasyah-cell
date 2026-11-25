@@ -404,7 +404,7 @@ public class MainActivity extends Activity {
                     if (saldoAmountText != null) {
                         saldoAmountText.setText("💰  " + nominal);
                     }
-                    Toast.makeText(this, "Saldo OtomaX berhasil diperbarui", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(this, Toast.LENGTH_SHORT).show();
                 });
             } catch (Exception e) {
                 runOnUiThread(() -> showMessage("Gagal mengambil saldo",
