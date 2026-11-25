@@ -681,13 +681,17 @@ public class MainActivity extends Activity {
                         LinearLayout.LayoutParams optionLp = wrap();
                         optionLp.bottomMargin = dp(9);
                         productContainer.addView(option, optionLp);
+                        // Salin nilai ke variabel final agar aman dipakai lambda.
+                        final String judulDipilih = judul;
+                        final String hargaDipilih = harga;
+                        final JSONObject itemDipilih = item;
                         option.setOnClickListener(v -> {
-                            selectedProduct = item;
+                            selectedProduct = itemDipilih;
                             for (int j = 0; j < productContainer.getChildCount(); j++) {
                                 productContainer.getChildAt(j).setBackground(round(Color.WHITE, 12));
                             }
                             option.setBackground(round(Color.rgb(255, 235, 235), 12));
-                            statusText.setText("Dipilih: " + judul + " | " + harga);
+                            statusText.setText("Dipilih: " + judulDipilih + " | " + hargaDipilih);
                         });
                     }
                 });
