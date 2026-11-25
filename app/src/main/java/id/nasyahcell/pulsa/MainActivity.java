@@ -1,4 +1,3 @@
-
 package id.nasyahcell.pulsa;
 
 import android.app.Activity;
@@ -14,971 +13,132 @@ import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.*;
-import android.text.Editable;
-import android.text.TextWatcher;
-
-import org.json.JSONObject;
 import org.json.JSONArray;
-import java.util.ArrayList;
+import org.json.JSONObject;
+import java.io.BufferedReader;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
-import java.io.BufferedReader;
-import java.io.InputStreamReader;
 import java.text.NumberFormat;
+import java.util.ArrayList;
 import java.util.Locale;
 
 public class MainActivity extends Activity {
-
-    private final int RED = Color.rgb(218, 43, 48);
-    private final int DARK = Color.rgb(5, 62, 78);
-    private final int BG = Color.rgb(245, 246, 248);
-    private final int BLUE = Color.rgb(20, 105, 180);
-
-    private LinearLayout root;
-    private LinearLayout content;
-    private TextView balanceText;
-    private TextView saldoAmountText;
-    private double saldoOtomax = 0;
-
-    // Sesuaikan URL ini jika alamat Cloudflare Tunnel sudah berubah.
-    private static final String SERVER_URL =
-            "https://charming-antarctica-cat-gmbh.trycloudflare.com";
-
-    // Isi dengan API key yang sama persis seperti di config.json server.
-    private static final String API_KEY = "NasyahCell-2026-KunciRahasia-73921";
-
-    private EditText numberInput;
-    private Spinner productSpinner;
-    private TextView statusText;
-    private LinearLayout productContainer;
-    private JSONObject selectedProduct;
-    private final ArrayList<JSONObject> daftarProduk = new ArrayList<>();
-    private final ArrayList<JSONObject> semuaProduk = new ArrayList<>();
-    private String kategoriAktif = "";
-    private boolean sedangMemuatProduk = false;
-    private ArrayAdapter<String> productAdapter;
-
-    private boolean saldoVisible = false;
-    private String selectedCategory = null;
-
+    private static final int RED = Color.rgb(218, 43, 48);
+    private static final int DARK = Color.rgb(5, 62, 78);
+    private static final int BG = Color.rgb(245, 246, 248);
+    private static final String SERVER_URL = "https://charming-antarctica-cat-gmbh.trycloudflare.com";
+    // Ganti nilai ini dengan API key dari config.json di PC. Jangan kirim key ke orang lain.
+    private static final String API_KEY = "GANTI_DENGAN_API_KEY_CONFIG_JSON";
     private static final int REQUEST_CONTACT = 1001;
 
-    private final String[] categories = {
-            "Pulsa", "Paket Data", "Token PLN", "Telepon & SMS",
-            "Voucher Data", "Masa Aktif", "Paket Terbaik", "Game",
-            "Kirim Uang", "Kartu Perdana", "Layanan Digital"
-    };
+    private LinearLayout root, productList;
+    private TextView saldoText, pageStatus;
+    private EditText phoneInput;
+    private final ArrayList<JSONObject> products = new ArrayList<>();
+    private String selectedCategory = "";
+    private JSONObject selectedProduct;
+    private double saldoValue = 0;
+    private final String[] categories = {"Pulsa", "Paket Data", "Token PLN", "Telepon & SMS", "Voucher Data", "Masa Aktif", "Paket Terbaik", "Game", "Kirim Uang", "Kartu Perdana", "Layanan Digital"};
+    private final String[] icons = {"📱", "🌐", "💡", "☎", "🎟", "🗓", "🏷", "🎮", "💸", "💳", "🛒"};
 
-    private final String[] icons = {
-            "📱", "🌐", "💡", "☎️",
-            "🎟️", "🗓️", "🏷️", "🎮",
-            "💸", "💳", "🛒"
-    };
-
-    @Override
-    protected void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-
+    @Override public void onCreate(Bundle b) {
+        super.onCreate(b);
         getWindow().setStatusBarColor(RED);
         getWindow().setNavigationBarColor(Color.WHITE);
-        getWindow().getDecorView().setSystemUiVisibility(
-                View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR
-        );
-
+        getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR);
         showHome();
     }
 
+    private int dp(float v) { return (int)(v * getResources().getDisplayMetrics().density); }
+    private GradientDrawable bg(int color, int radius) {
+        GradientDrawable d = new GradientDrawable(); d.setColor(color); d.setCornerRadius(dp(radius)); return d;
+    }
+    private TextView tv(String s, int size, int color, boolean bold) {
+        TextView t = new TextView(this); t.setText(s); t.setTextSize(size); t.setTextColor(color);
+        if (bold) t.setTypeface(null, Typeface.BOLD); return t;
+    }
+    private LinearLayout.LayoutParams lp(int w, int h) { return new LinearLayout.LayoutParams(w < 0 ? w : dp(w), h < 0 ? h : dp(h)); }
+    private String rupiah(double n) { return "Rp " + NumberFormat.getNumberInstance(new Locale("id", "ID")).format(n); }
+    private void message(String title, String msg) { new AlertDialog.Builder(this).setTitle(title).setMessage(msg).setPositiveButton("OK", null).show(); }
+
     private void showHome() {
-        selectedCategory = null;
-
-        root = new LinearLayout(this);
-        root.setOrientation(LinearLayout.VERTICAL);
-        root.setBackgroundColor(BG);
-
-        // HEADER MERAH
-        LinearLayout header = new LinearLayout(this);
-        header.setGravity(Gravity.CENTER_VERTICAL);
-        header.setPadding(dp(15), dp(14), dp(15), dp(14));
-        header.setBackgroundColor(RED);
-
-        TextView menu = text("☰", 27, Color.WHITE, true);
-        menu.setGravity(Gravity.CENTER);
-        header.addView(menu, new LinearLayout.LayoutParams(dp(45), dp(45)));
-
-        TextView appName = text("NASYAH CELL", 21, Color.WHITE, true);
-        LinearLayout.LayoutParams nameLp =
-                new LinearLayout.LayoutParams(0, -2, 1);
-        nameLp.leftMargin = dp(12);
-        header.addView(appName, nameLp);
-
-        TextView refresh = text("⟳", 29, Color.WHITE, true);
-        refresh.setGravity(Gravity.CENTER);
-        header.addView(refresh, new LinearLayout.LayoutParams(dp(42), dp(45)));
-
-        TextView more = text("⋮", 29, Color.WHITE, true);
-        more.setGravity(Gravity.CENTER);
-        header.addView(more, new LinearLayout.LayoutParams(dp(35), dp(45)));
-
-        menu.setOnClickListener(v -> showMessage(
-                "NASYAH CELL", "Selamat datang di layanan Nasyah Cell."
-        ));
-
-        refresh.setOnClickListener(v -> ambilSaldo());
-
-        more.setOnClickListener(v -> showMoreMenu(v));
-
-        root.addView(header);
-
-        // TAB NAVIGASI
-        HorizontalScrollView tabScroll = new HorizontalScrollView(this);
-        tabScroll.setHorizontalScrollBarEnabled(false);
-        tabScroll.setBackgroundColor(DARK);
-
-        LinearLayout tabs = new LinearLayout(this);
-        tabs.setOrientation(LinearLayout.HORIZONTAL);
-
-        String[] tabNames = {
-                "PRABAYAR", "PEMBAYARAN", "TOUR & TRAVEL", "MENU"
-        };
-
-        for (String tab : tabNames) {
-            TextView item = text(tab, 14, Color.WHITE, true);
-            item.setGravity(Gravity.CENTER);
-            item.setPadding(dp(18), dp(17), dp(18), dp(17));
-
-            tabs.addView(item);
-
-            item.setOnClickListener(v -> {
-                if (tab.equals("PRABAYAR")) {
-                    showHome();
-                } else if (tab.equals("PEMBAYARAN")) {
-                    showCategory("Tagihan PLN");
-                } else {
-                    showMessage(tab, "Menu ini akan dikembangkan.");
-                }
-            });
-        }
-
-        tabScroll.addView(tabs);
-        root.addView(tabScroll);
-
-        // KONTEN YANG BISA DIGULIR
-        ScrollView scroll = new ScrollView(this);
-        scroll.setFillViewport(false);
-
-        content = new LinearLayout(this);
-        content.setOrientation(LinearLayout.VERTICAL);
-        content.setPadding(dp(14), dp(16), dp(14), dp(20));
-
-        scroll.addView(content);
-
-        // BANNER PROMO
-        LinearLayout banner = new LinearLayout(this);
-        banner.setOrientation(LinearLayout.HORIZONTAL);
-        banner.setGravity(Gravity.CENTER_VERTICAL);
-        banner.setPadding(dp(20), dp(18), dp(15), dp(18));
-        banner.setBackground(round(RED, 18));
-
-        LinearLayout bannerText = new LinearLayout(this);
-        bannerText.setOrientation(LinearLayout.VERTICAL);
-
-        TextView promoTitle = text("Produk Promo", 23, Color.WHITE, true);
-        bannerText.addView(promoTitle);
-
-        TextView promoSubtitle = text(
-                "Buruan beli sekarang", 14, Color.WHITE, true
-        );
-        LinearLayout.LayoutParams promoSubLp = wrap();
-        promoSubLp.topMargin = dp(5);
-        bannerText.addView(promoSubtitle, promoSubLp);
-
-        TextView promoButton = text(
-                "  Klik Disini  ", 13, Color.WHITE, true
-        );
-        promoButton.setGravity(Gravity.CENTER);
-        promoButton.setPadding(dp(10), dp(8), dp(10), dp(8));
-        promoButton.setBackground(round(DARK, 20));
-
-        LinearLayout.LayoutParams promoButtonLp = wrap();
-        promoButtonLp.topMargin = dp(12);
-        bannerText.addView(promoButton, promoButtonLp);
-
-        banner.addView(
-                bannerText,
-                new LinearLayout.LayoutParams(0, -2, 1)
-        );
-
-        TextView promoIcon = text("🎉\nSUPER\nSALE!", 24, Color.WHITE, true);
-        promoIcon.setGravity(Gravity.CENTER);
-        banner.addView(promoIcon, new LinearLayout.LayoutParams(
-                dp(125), dp(125)
-        ));
-
-        LinearLayout.LayoutParams bannerLp = wrap();
-        bannerLp.height = dp(155);
-        content.addView(banner, bannerLp);
-
-        promoButton.setOnClickListener(v -> showMessage(
-                "Produk Promo", "Daftar produk promo akan ditampilkan di sini."
-        ));
-
-        // KARTU SALDO
-        LinearLayout saldoCard = new LinearLayout(this);
-        saldoCard.setOrientation(LinearLayout.VERTICAL);
-        saldoCard.setBackground(round(Color.WHITE, 12));
-        saldoCard.setClipToOutline(true);
-
-        LinearLayout saldoTop = new LinearLayout(this);
-        saldoTop.setGravity(Gravity.CENTER_VERTICAL);
-        saldoTop.setPadding(dp(15), dp(13), dp(15), dp(13));
-
-        TextView walletIcon = text("💰", 20, Color.BLACK, false);
-        saldoTop.addView(walletIcon);
-
-        TextView saldoLabel = text("Saldo Anda", 18, Color.BLACK, false);
-        LinearLayout.LayoutParams saldoLabelLp = wrap();
-        saldoLabelLp.leftMargin = dp(10);
-        saldoTop.addView(saldoLabel, saldoLabelLp);
-
-        View spacer = new View(this);
-        saldoTop.addView(spacer, new LinearLayout.LayoutParams(0, 1, 1));
-
-        TextView eye = text("◉", 20, Color.BLACK, true);
-        saldoTop.addView(eye);
-
-        balanceText = text("Rp 0", 17, Color.BLACK, true);
-        LinearLayout.LayoutParams balanceLp = wrap();
-        balanceLp.leftMargin = dp(12);
-        saldoTop.addView(balanceText, balanceLp);
-
-        eye.setOnClickListener(v -> {
-            saldoVisible = !saldoVisible;
-            String nominal = formatRupiah(saldoOtomax);
-            balanceText.setText(saldoVisible ? nominal : "******");
-        });
-
-        saldoCard.addView(saldoTop);
-
-        View line = new View(this);
-        line.setBackgroundColor(Color.rgb(210, 220, 225));
-        saldoCard.addView(line, new LinearLayout.LayoutParams(-1, dp(1)));
-
-        LinearLayout saldoBottom = new LinearLayout(this);
-        saldoBottom.setGravity(Gravity.CENTER);
-        saldoBottom.setOrientation(LinearLayout.HORIZONTAL);
-
-        saldoAmountText = text("💰  Rp 0", 17, Color.BLACK, false);
-        saldoAmountText.setGravity(Gravity.CENTER);
-
-        TextView deposit = text("➕ Isi Saldo", 17, Color.BLACK, false);
-        deposit.setGravity(Gravity.CENTER);
-
-        saldoBottom.addView(saldoAmountText,
-                new LinearLayout.LayoutParams(0, dp(54), 1));
-
-        View divider = new View(this);
-        divider.setBackgroundColor(Color.rgb(210, 220, 225));
-        saldoBottom.addView(divider,
-                new LinearLayout.LayoutParams(dp(1), dp(54)));
-
-        saldoBottom.addView(deposit,
-                new LinearLayout.LayoutParams(0, dp(54), 1));
-
-        saldoCard.addView(saldoBottom);
-
-        LinearLayout.LayoutParams saldoCardLp = wrap();
-        saldoCardLp.topMargin = dp(20);
-        content.addView(saldoCard, saldoCardLp);
-
-        deposit.setOnClickListener(v -> showDeposit());
-        
-        // JUDUL PRODUK FAVORIT
-        TextView favoriteTitle = text(
-                "Produk Favorit", 19, Color.BLACK, true
-        );
-        LinearLayout.LayoutParams favoriteLp = wrap();
-        favoriteLp.topMargin = dp(20);
-        content.addView(favoriteTitle, favoriteLp);
-
-        TextView favoriteSub = text(
-                "Kami memudahkan pembelian produk untukmu",
-                13, Color.GRAY, false
-        );
-        LinearLayout.LayoutParams favoriteSubLp = wrap();
-        favoriteSubLp.topMargin = dp(3);
-        favoriteSubLp.bottomMargin = dp(18);
-        content.addView(favoriteSub, favoriteSubLp);
-
-        // GRID PRODUK 4 KOLOM
-        for (int i = 0; i < categories.length; i += 4) {
-            LinearLayout row = new LinearLayout(this);
-            row.setOrientation(LinearLayout.HORIZONTAL);
-            row.setGravity(Gravity.TOP);
-
-            for (int j = i; j < i + 4 && j < categories.length; j++) {
-                addProductItem(row, j);
-            }
-
-            LinearLayout.LayoutParams rowLp = wrap();
-            rowLp.bottomMargin = dp(18);
-            content.addView(row, rowLp);
-        }
-
-        TextView newTitle = text(
-                "Produk Baru", 19, Color.BLACK, true
-        );
-        LinearLayout.LayoutParams newTitleLp = wrap();
-        newTitleLp.topMargin = dp(5);
-        content.addView(newTitle, newTitleLp);
-
-        TextView newSub = text(
-                "Layanan terbaru Nasyah Cell",
-                13, Color.GRAY, false
-        );
-        content.addView(newSub);
-
-        TextView newProduct = text(
-                "🛒  Layanan Digital",
-                16, BLUE, true
-        );
-        newProduct.setGravity(Gravity.CENTER);
-        newProduct.setPadding(dp(12), dp(18), dp(12), dp(18));
-        newProduct.setBackground(round(Color.WHITE, 12));
-
-        LinearLayout.LayoutParams newProductLp = wrap();
-        newProductLp.topMargin = dp(12);
-        content.addView(newProduct, newProductLp);
-
-        newProduct.setOnClickListener(v -> showCategory("Layanan Digital"));
-
-        root.addView(scroll, new LinearLayout.LayoutParams(
-                -1, 0, 1
-        ));
-
-        // NAVIGASI BAWAH
-        addBottomNavigation();
-
-        setContentView(root);
-        ambilSaldo(); // Ambil saldo otomatis saat halaman utama dibuka.
+        selectedCategory = "";
+        root = new LinearLayout(this); root.setOrientation(LinearLayout.VERTICAL); root.setBackgroundColor(BG);
+        LinearLayout header = new LinearLayout(this); header.setGravity(Gravity.CENTER_VERTICAL); header.setPadding(dp(16),dp(14),dp(16),dp(14)); header.setBackgroundColor(RED);
+        TextView brand = tv("NASYAH CELL",21,Color.WHITE,true); header.addView(brand,new LinearLayout.LayoutParams(0,dp(42),1));
+        TextView refresh = tv("⟳",30,Color.WHITE,true); refresh.setGravity(Gravity.CENTER); header.addView(refresh,lp(45,45)); refresh.setOnClickListener(v->loadSaldo()); root.addView(header);
+        TextView tab = tv("PRABAYAR     PEMBAYARAN     MENU",13,Color.WHITE,true); tab.setGravity(Gravity.CENTER); tab.setPadding(0,dp(16),0,dp(16)); tab.setBackgroundColor(DARK); root.addView(tab,lp(-1,-2));
+        ScrollView scroll = new ScrollView(this); LinearLayout body = new LinearLayout(this); body.setOrientation(LinearLayout.VERTICAL); body.setPadding(dp(14),dp(16),dp(14),dp(24)); scroll.addView(body);
+        LinearLayout promo = new LinearLayout(this); promo.setGravity(Gravity.CENTER_VERTICAL); promo.setPadding(dp(18),dp(18),dp(18),dp(18)); promo.setBackground(bg(RED,16));
+        LinearLayout promoTxt = new LinearLayout(this); promoTxt.setOrientation(LinearLayout.VERTICAL); TextView p1=tv("Produk Nasyah Cell",21,Color.WHITE,true); TextView p2=tv("Pulsa, paket data dan PPOB",13,Color.WHITE,false); promoTxt.addView(p1); promoTxt.addView(p2); promo.addView(promoTxt,new LinearLayout.LayoutParams(0,-2,1)); promo.addView(tv("📱",42,Color.WHITE,true)); body.addView(promo,lp(-1,110));
+        LinearLayout balance = new LinearLayout(this); balance.setOrientation(LinearLayout.VERTICAL); balance.setPadding(dp(16),dp(14),dp(16),dp(14)); balance.setBackground(bg(Color.WHITE,14)); LinearLayout.LayoutParams blp=lp(-1,-2); blp.topMargin=dp(16); body.addView(balance,blp);
+        TextView btitle=tv("SALDO ANDA",14,Color.GRAY,true); balance.addView(btitle); saldoText=tv("Memuat saldo...",22,Color.BLACK,true); LinearLayout.LayoutParams slp=lp(-1,-2); slp.topMargin=dp(6); balance.addView(saldoText,slp);
+        TextView section=tv("Pilih Layanan",19,Color.BLACK,true); LinearLayout.LayoutParams stp=lp(-1,-2); stp.topMargin=dp(22); body.addView(section,stp);
+        for(int i=0;i<categories.length;i+=3){ LinearLayout row=new LinearLayout(this); row.setGravity(Gravity.TOP); for(int j=i;j<Math.min(i+3,categories.length);j++) addCategory(row,j); LinearLayout.LayoutParams rlp=lp(-1,-2); rlp.topMargin=dp(15); body.addView(row,rlp); }
+        root.addView(scroll,new LinearLayout.LayoutParams(-1,0,1)); TextView bottom=tv("Kontak CS          Riwayat          QRIS          Akun",12,Color.DKGRAY,true); bottom.setGravity(Gravity.CENTER); bottom.setBackgroundColor(Color.WHITE); bottom.setPadding(0,dp(15),0,dp(15)); root.addView(bottom,lp(-1,-2)); setContentView(root); loadSaldo();
+    }
+    private void addCategory(LinearLayout row,int i){
+        LinearLayout cell=new LinearLayout(this); cell.setOrientation(LinearLayout.VERTICAL); cell.setGravity(Gravity.CENTER); cell.setPadding(dp(4),dp(8),dp(4),dp(8));
+        TextView ico=tv(icons[i],30,RED,true); ico.setGravity(Gravity.CENTER); ico.setBackground(bg(Color.WHITE,16)); cell.addView(ico,lp(72,68)); TextView name=tv(categories[i],12,Color.BLACK,true); name.setGravity(Gravity.CENTER); name.setMaxLines(2); LinearLayout.LayoutParams nlp=lp(-1,-2); nlp.topMargin=dp(7); cell.addView(name,nlp); row.addView(cell,new LinearLayout.LayoutParams(0,-2,1)); cell.setOnClickListener(v->showProducts(categories[i]));
     }
 
-    private String formatRupiah(double nilai) {
-        return "Rp " + NumberFormat.getNumberInstance(new Locale("id", "ID"))
-                .format(nilai);
+    private void loadSaldo(){ new Thread(()->{ HttpURLConnection c=null; try{ JSONObject j=getJson(SERVER_URL+"/api/saldo"); double s=j.optDouble("saldo",0); runOnUiThread(()->{saldoValue=s;if(saldoText!=null)saldoText.setText(rupiah(s));}); }catch(Exception e){runOnUiThread(()->{if(saldoText!=null)saldoText.setText("Saldo tidak dapat dimuat");});} }).start(); }
+
+    private JSONObject getJson(String address) throws Exception {
+        HttpURLConnection c=(HttpURLConnection)new URL(address).openConnection();
+        try { c.setRequestMethod("GET"); c.setConnectTimeout(15000); c.setReadTimeout(20000); c.setRequestProperty("X-API-Key",API_KEY);
+            int code=c.getResponseCode(); InputStream in=(code>=200&&code<300)?c.getInputStream():c.getErrorStream();
+            if(in==null) throw new Exception("HTTP "+code); BufferedReader r=new BufferedReader(new InputStreamReader(in,"UTF-8")); StringBuilder b=new StringBuilder(); String line; while((line=r.readLine())!=null)b.append(line); r.close(); if(code!=200)throw new Exception("HTTP "+code+" "+b); return new JSONObject(b.toString());
+        } finally { c.disconnect(); }
     }
 
-    private void ambilSaldo() {
-        new Thread(() -> {
-            HttpURLConnection conn = null;
-            try {
-                URL url = new URL(SERVER_URL + "/api/saldo");
-                conn = (HttpURLConnection) url.openConnection();
-                conn.setRequestMethod("GET");
-                conn.setConnectTimeout(15000);
-                conn.setReadTimeout(15000);
-                conn.setRequestProperty("X-API-Key", API_KEY);
-
-                int code = conn.getResponseCode();
-                java.io.InputStream stream = (code >= 200 && code < 300)
-                        ? conn.getInputStream() : conn.getErrorStream();
-                if (stream == null) {
-                    throw new Exception("Server tidak mengirim respons (HTTP " + code + ")");
-                }
-
-                BufferedReader reader = new BufferedReader(new InputStreamReader(stream, "UTF-8"));
-                StringBuilder response = new StringBuilder();
-                String line;
-                while ((line = reader.readLine()) != null) response.append(line);
-                reader.close();
-
-                if (code != 200) {
-                    throw new Exception("HTTP " + code + ": " + response);
-                }
-
-                JSONObject json = new JSONObject(response.toString());
-                double saldo;
-                if (json.has("saldo")) {
-                    saldo = json.getDouble("saldo");
-                } else if (json.has("data") && json.optJSONObject("data") != null
-                        && json.getJSONObject("data").has("saldo")) {
-                    saldo = json.getJSONObject("data").getDouble("saldo");
-                } else {
-                    throw new Exception("Field saldo tidak ditemukan dalam respons server: " + response);
-                }
-
-                runOnUiThread(() -> {
-                    saldoOtomax = saldo;
-                    String nominal = formatRupiah(saldo);
-                    if (balanceText != null) {
-                        balanceText.setText(saldoVisible ? nominal : "******");
-                    }
-                    if (saldoAmountText != null) {
-                        saldoAmountText.setText("💰  " + nominal);
-                    }
-                });
-            } catch (Exception e) {
-                runOnUiThread(() -> showMessage("Gagal mengambil saldo",
-                        e.getMessage() == null ? "Periksa koneksi server dan API." : e.getMessage()));
-            } finally {
-                if (conn != null) conn.disconnect();
-            }
-        }).start();
+    private void showProducts(String category){
+        selectedCategory=category; selectedProduct=null;
+        LinearLayout page=new LinearLayout(this); page.setOrientation(LinearLayout.VERTICAL); page.setBackgroundColor(BG);
+        LinearLayout header=new LinearLayout(this); header.setGravity(Gravity.CENTER_VERTICAL); header.setPadding(dp(12),dp(8),dp(12),dp(8)); header.setBackgroundColor(Color.WHITE);
+        TextView back=tv("‹",36,RED,true); back.setGravity(Gravity.CENTER); header.addView(back,lp(42,48)); TextView title=tv(category,20,Color.BLACK,true); header.addView(title); page.addView(header); back.setOnClickListener(v->showHome());
+        ScrollView scroll=new ScrollView(this); LinearLayout body=new LinearLayout(this); body.setOrientation(LinearLayout.VERTICAL); body.setPadding(dp(14),dp(16),dp(14),dp(24)); scroll.addView(body);
+        LinearLayout numberCard=new LinearLayout(this); numberCard.setOrientation(LinearLayout.VERTICAL); numberCard.setPadding(dp(14),dp(14),dp(14),dp(14)); numberCard.setBackground(bg(Color.WHITE,14)); body.addView(numberCard,lp(-1,-2)); numberCard.addView(tv("Nomor Tujuan",14,Color.BLACK,true));
+        LinearLayout nr=new LinearLayout(this); nr.setGravity(Gravity.CENTER_VERTICAL); LinearLayout.LayoutParams nrp=lp(-1,52); nrp.topMargin=dp(8); numberCard.addView(nr,nrp);
+        phoneInput=new EditText(this); phoneInput.setSingleLine(true); phoneInput.setTextSize(15); phoneInput.setHint("Masukkan nomor tujuan"); phoneInput.setInputType(3); phoneInput.setPadding(dp(10),0,dp(10),0); phoneInput.setBackground(bg(BG,9)); nr.addView(phoneInput,new LinearLayout.LayoutParams(0,-1,1));
+        TextView contact=tv("Kontak",13,Color.WHITE,true); contact.setGravity(Gravity.CENTER); contact.setBackground(bg(RED,9)); LinearLayout.LayoutParams clp=lp(82,-1); clp.leftMargin=dp(8); nr.addView(contact,clp); contact.setOnClickListener(v->pickContact());
+        TextView choose=tv("Pilih Nominal / Produk",17,Color.BLACK,true); LinearLayout.LayoutParams chp=lp(-1,-2); chp.topMargin=dp(20); body.addView(choose,chp);
+        pageStatus=tv("Memuat produk dari OtomaX...",12,Color.GRAY,false); LinearLayout.LayoutParams psp=lp(-1,-2); psp.topMargin=dp(6); body.addView(pageStatus,psp);
+        productList=new LinearLayout(this); productList.setOrientation(LinearLayout.VERTICAL); LinearLayout.LayoutParams plp=lp(-1,-2); plp.topMargin=dp(10); body.addView(productList,plp);
+        root=page; page.addView(scroll,new LinearLayout.LayoutParams(-1,0,1)); setContentView(page); loadProducts(category);
     }
 
-    private void addProductItem(LinearLayout row, int index) {
-        LinearLayout item = new LinearLayout(this);
-        item.setOrientation(LinearLayout.VERTICAL);
-        item.setGravity(Gravity.CENTER);
-        item.setPadding(dp(2), dp(3), dp(2), dp(3));
-
-        TextView icon = text(icons[index], 32, RED, true);
-        icon.setGravity(Gravity.CENTER);
-        icon.setBackground(round(Color.WHITE, 20));
-
-        LinearLayout.LayoutParams iconLp = new LinearLayout.LayoutParams(
-                dp(76), dp(76)
-        );
-        item.addView(icon, iconLp);
-
-        TextView label = text(
-                categories[index], 12, Color.BLACK, false
-        );
-        label.setGravity(Gravity.CENTER);
-        label.setMaxLines(2);
-
-        LinearLayout.LayoutParams labelLp = wrap();
-        labelLp.topMargin = dp(9);
-        item.addView(label, labelLp);
-
-        row.addView(item, new LinearLayout.LayoutParams(0, -2, 1));
-
-        item.setOnClickListener(v -> showCategory(categories[index]));
+    private void loadProducts(String category){
+        new Thread(()->{ try{
+            JSONObject response=getJson(SERVER_URL+"/api/produk"); JSONArray arr=response.optJSONArray("produk"); if(arr==null)throw new Exception("Daftar produk tidak ditemukan."); ArrayList<JSONObject> found=new ArrayList<>();
+            for(int i=0;i<arr.length();i++){JSONObject p=arr.optJSONObject(i);if(p!=null&&p.optString("kategori","").trim().equalsIgnoreCase(category))found.add(p);}
+            runOnUiThread(()->renderProducts(found,category));
+        }catch(Exception e){runOnUiThread(()->{if(pageStatus!=null)pageStatus.setText("Gagal memuat produk: "+e.getMessage());});}}).start();
     }
-
-    private void addBottomNavigation() {
-        LinearLayout bottom = new LinearLayout(this);
-        bottom.setOrientation(LinearLayout.HORIZONTAL);
-        bottom.setGravity(Gravity.CENTER);
-        bottom.setBackgroundColor(Color.WHITE);
-        bottom.setElevation(dp(8));
-
-        String[] names = {
-                "Kontak CS", "Riwayat", "QRIS", "Penjualan", "Akun"
-        };
-
-        String[] symbols = {
-                "☎️", "📱", "▦", "📈", "👤"
-        };
-
-        for (int i = 0; i < names.length; i++) {
-            final int index = i;
-
-            LinearLayout item = new LinearLayout(this);
-            item.setOrientation(LinearLayout.VERTICAL);
-            item.setGravity(Gravity.CENTER);
-            item.setPadding(dp(2), dp(9), dp(2), dp(8));
-
-            TextView symbol = text(
-                    symbols[i], i == 2 ? 27 : 21, RED, true
-            );
-            symbol.setGravity(Gravity.CENTER);
-
-            if (i == 2) {
-                symbol.setTextColor(Color.WHITE);
-                symbol.setBackground(round(RED, 50));
-                item.addView(symbol, new LinearLayout.LayoutParams(
-                        dp(57), dp(57)
-                ));
-            } else {
-                item.addView(symbol, new LinearLayout.LayoutParams(
-                        -1, dp(35)
-                ));
-            }
-
-            TextView label = text(
-                    names[i], 11, Color.BLACK, false
-            );
-            label.setGravity(Gravity.CENTER);
-
-            LinearLayout.LayoutParams labelLp = wrap();
-            labelLp.topMargin = dp(3);
-            item.addView(label, labelLp);
-
-            bottom.addView(item,
-                    new LinearLayout.LayoutParams(0, -2, 1));
-
-            item.setOnClickListener(v -> {
-                switch (index) {
-                    case 0:
-                        showMessage("Kontak CS",
-                                "Kontak Customer Service akan dihubungkan di sini.");
-                        break;
-                    case 1:
-                        showHistory();
-                        break;
-                    case 2:
-                        showQRIS();
-                        break;
-                    case 3:
-                        showMessage("Penjualan",
-                                "Menu penjualan akan dikembangkan.");
-                        break;
-                    case 4:
-                        showAccount();
-                        break;
-                }
-            });
-        }
-
-        root.addView(bottom);
-    }
-
-    private void showCategory(String category) {
-        selectedCategory = category;
-        showProduct(category);
-    }
-
-    private void showProduct(String category) {
-        selectedProduct = null;
-        kategoriAktif = category;
-        semuaProduk.clear();
-        daftarProduk.clear();
-        sedangMemuatProduk = false;
-        LinearLayout page = new LinearLayout(this);
-        page.setOrientation(LinearLayout.VERTICAL);
-        page.setBackgroundColor(BG);
-
-        LinearLayout top = new LinearLayout(this);
-        top.setGravity(Gravity.CENTER_VERTICAL);
-        top.setPadding(dp(16), dp(8), dp(16), dp(8));
-        top.setBackgroundColor(Color.WHITE);
-
-        TextView back = text("‹", 35, RED, true);
-        top.addView(back, new LinearLayout.LayoutParams(dp(45), dp(50)));
-        TextView title = text(category, 21, Color.BLACK, true);
-        top.addView(title);
-        page.addView(top);
-        back.setOnClickListener(v -> showHome());
-
-        ScrollView scroll = new ScrollView(this);
-        LinearLayout body = new LinearLayout(this);
-        body.setOrientation(LinearLayout.VERTICAL);
-        body.setPadding(dp(16), dp(16), dp(16), dp(22));
-
-        LinearLayout card = new LinearLayout(this);
-        card.setOrientation(LinearLayout.VERTICAL);
-        card.setPadding(dp(16), dp(18), dp(16), dp(18));
-        card.setBackground(round(Color.WHITE, 15));
-
-        card.addView(text("Nomor Tujuan", 15, Color.BLACK, true));
-        LinearLayout contactRow = new LinearLayout(this);
-        contactRow.setGravity(Gravity.CENTER_VERTICAL);
-        numberInput = new EditText(this);
-        numberInput.setSingleLine(true);
-        numberInput.setHint("Masukkan nomor tujuan");
-        numberInput.setInputType(3);
-        numberInput.setTextSize(15);
-        numberInput.setPadding(dp(10), 0, dp(10), 0);
-        numberInput.setBackground(round(BG, 10));
-        LinearLayout.LayoutParams numberLp = new LinearLayout.LayoutParams(0, dp(50), 1);
-        numberLp.rightMargin = dp(8);
-        contactRow.addView(numberInput, numberLp);
-        TextView contactButton = button("Kontak");
-        contactRow.addView(contactButton, new LinearLayout.LayoutParams(dp(85), dp(50)));
-        contactButton.setOnClickListener(v -> pickContact());
-        LinearLayout.LayoutParams contactLp = wrap();
-        contactLp.topMargin = dp(10);
-        card.addView(contactRow, contactLp);
-        body.addView(card);
-
-        TextView productLabel = text("Pilih Nominal / Produk", 17, Color.BLACK, true);
-        LinearLayout.LayoutParams productLabelLp = wrap();
-        productLabelLp.topMargin = dp(20);
-        body.addView(productLabel, productLabelLp);
-
-        statusText = text("Masukkan nomor HP terlebih dahulu. Produk akan muncul sesuai prefix nomor.", 13, Color.GRAY, false);
-        LinearLayout.LayoutParams statusLp = wrap();
-        statusLp.topMargin = dp(7);
-        body.addView(statusText, statusLp);
-
-        productContainer = new LinearLayout(this);
-        productContainer.setOrientation(LinearLayout.VERTICAL);
-        LinearLayout.LayoutParams listLp = wrap();
-        listLp.topMargin = dp(12);
-        body.addView(productContainer, listLp);
-
-        TextView buy = button("LANJUTKAN");
-        LinearLayout.LayoutParams buyLp = wrap();
-        buyLp.topMargin = dp(18);
-        body.addView(buy, buyLp);
-        buy.setOnClickListener(v -> processTransaction());
-
-        TextView note = text("Mode uji coba: pesanan belum dikirim ke OtomaX.", 12, Color.GRAY, false);
-        LinearLayout.LayoutParams noteLp = wrap();
-        noteLp.topMargin = dp(12);
-        body.addView(note, noteLp);
-
-        scroll.addView(body);
-        page.addView(scroll, new LinearLayout.LayoutParams(-1, 0, 1));
-        setContentView(page);
-
-        // Harga sengaja disembunyikan sampai nomor tujuan cukup untuk membaca prefix.
-        productContainer.setVisibility(View.GONE);
-        numberInput.addTextChangedListener(new TextWatcher() {
-            @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) { }
-            @Override public void onTextChanged(CharSequence s, int start, int before, int count) {
-                String nomor = normalisasiNomor(s.toString());
-                selectedProduct = null;
-                if (nomor.length() < 4) {
-                    daftarProduk.clear();
-                    productContainer.removeAllViews();
-                    productContainer.setVisibility(View.GONE);
-                    statusText.setText("Masukkan minimal 4 angka nomor HP untuk menampilkan produk sesuai operator.");
-                    return;
-                }
-                if (!semuaProduk.isEmpty()) {
-                    tampilkanProdukSesuaiPrefix(nomor);
-                } else if (!sedangMemuatProduk) {
-                    loadProducts(kategoriAktif);
-                }
-            }
-            @Override public void afterTextChanged(Editable s) { }
-        });
-    }
-
-    private String normalisasiNomor(String nomor) {
-        if (nomor == null) return "";
-        String angka = nomor.replaceAll("[^0-9]", "");
-        if (angka.startsWith("62")) angka = "0" + angka.substring(2);
-        return angka;
-    }
-
-    private boolean prefixCocok(String nomor, JSONObject item) {
-        String daftarPrefix = item.optString("prefix_tujuan",
-                item.optString("prefix", item.optString("prefix_operator", "")));
-        if (daftarPrefix == null || daftarPrefix.trim().isEmpty() || "null".equalsIgnoreCase(daftarPrefix)) {
-            return false;
-        }
-        String[] prefixes = daftarPrefix.split("[,;|\\s]+");
-        for (String p : prefixes) {
-            String prefix = p.replaceAll("[^0-9]", "");
-            if (prefix.startsWith("62")) prefix = "0" + prefix.substring(2);
-            if (!prefix.isEmpty() && nomor.startsWith(prefix)) return true;
-        }
-        return false;
-    }
-
-    private void tampilkanProdukSesuaiPrefix(String nomor) {
-        if (productContainer == null || statusText == null) return;
-        daftarProduk.clear();
-        for (JSONObject item : semuaProduk) {
-            String kategoriDb = item.optString("kategori", "").trim();
-            if (kategoriDb.equalsIgnoreCase(kategoriAktif) && prefixCocok(nomor, item)) {
-                daftarProduk.add(item);
-            }
-        }
-        productContainer.removeAllViews();
-        selectedProduct = null;
-        if (daftarProduk.isEmpty()) {
-            productContainer.setVisibility(View.GONE);
-            statusText.setText("Produk untuk prefix nomor ini belum ditemukan. Pastikan API mengirim field prefix_tujuan dari data operator OtomaX.");
-            return;
-        }
-        productContainer.setVisibility(View.VISIBLE);
-        statusText.setText(daftarProduk.size() + " produk cocok dengan nomor tujuan. Pilih salah satu:");
-        for (int i = 0; i < daftarProduk.size(); i++) {
-            final JSONObject item = daftarProduk.get(i);
-            final String judul = item.optString("nama_produk", "Produk")
-                    + (item.optString("nominal", "").isEmpty() ? "" : " - " + item.optString("nominal", ""));
-            final String harga = formatRupiah(item.optDouble("harga_jual", 0));
-            LinearLayout option = new LinearLayout(this);
-            option.setOrientation(LinearLayout.VERTICAL);
-            option.setPadding(dp(15), dp(13), dp(15), dp(13));
-            option.setBackground(round(Color.WHITE, 12));
-            option.addView(text(judul, 15, Color.BLACK, true));
-            TextView priceText = text(harga, 14, RED, true);
-            LinearLayout.LayoutParams priceLp = wrap();
-            priceLp.topMargin = dp(6);
-            option.addView(priceText, priceLp);
-            LinearLayout.LayoutParams optionLp = wrap();
-            optionLp.bottomMargin = dp(9);
-            productContainer.addView(option, optionLp);
-            option.setOnClickListener(v -> {
-                selectedProduct = item;
-                for (int j = 0; j < productContainer.getChildCount(); j++) {
-                    productContainer.getChildAt(j).setBackground(round(Color.WHITE, 12));
-                }
-                option.setBackground(round(Color.rgb(255, 235, 235), 12));
-                statusText.setText("Dipilih: " + judul + " | " + harga);
-            });
+    private void renderProducts(ArrayList<JSONObject> found,String category){
+        if(productList==null||pageStatus==null)return; products.clear();products.addAll(found);productList.removeAllViews(); pageStatus.setText(found.size()+" produk tersedia dari OtomaX");
+        if(found.isEmpty()){TextView empty=tv("Belum ada produk untuk kategori "+category,14,Color.GRAY,false); productList.addView(empty);return;}
+        for(JSONObject p:found){
+            boolean open=p.optString("status_produk","OPEN").equalsIgnoreCase("OPEN");
+            LinearLayout card=new LinearLayout(this);card.setOrientation(LinearLayout.VERTICAL);card.setPadding(dp(15),dp(13),dp(15),dp(13));card.setBackground(bg(Color.WHITE,13));
+            LinearLayout.LayoutParams cardLp=lp(-1,-2);cardLp.bottomMargin=dp(9);productList.addView(card,cardLp);
+            LinearLayout top=new LinearLayout(this);top.setGravity(Gravity.CENTER_VERTICAL);card.addView(top);
+            String code=p.optString("kode_produk",""); String nominal=p.optString("nominal","");
+            TextView codeView=tv(code+(nominal.isEmpty()?"":"  •  "+nominal),16,Color.BLACK,true);top.addView(codeView,new LinearLayout.LayoutParams(0,-2,1));
+            TextView state=tv(open?"OPEN":"GANGGUAN",11,Color.WHITE,true);state.setGravity(Gravity.CENTER);state.setPadding(dp(9),dp(5),dp(9),dp(5));state.setBackground(bg(open?Color.rgb(35,150,85):Color.rgb(210,75,55),20));top.addView(state);
+            String name=p.optString("nama_produk",""); if(!name.isEmpty()){TextView nm=tv(name,12,Color.GRAY,false);LinearLayout.LayoutParams nmp=lp(-1,-2);nmp.topMargin=dp(5);card.addView(nm,nmp);}
+            TextView price=tv(rupiah(p.optDouble("harga_jual",0)),16,RED,true);LinearLayout.LayoutParams prp=lp(-1,-2);prp.topMargin=dp(6);card.addView(price,prp);
+            if(open){card.setOnClickListener(v->{selectedProduct=p;confirmProduct(p);});}else{card.setAlpha(0.65f);}
         }
     }
-
-    private void loadProducts(String category) {
-        sedangMemuatProduk = true;
-        statusText.setText("Mencari produk yang sesuai dengan prefix nomor...");
-        if (productContainer != null) {
-            productContainer.removeAllViews();
-            productContainer.setVisibility(View.GONE);
-        }
-
-        new Thread(() -> {
-            HttpURLConnection conn = null;
-            try {
-                URL url = new URL(SERVER_URL + "/api/produk");
-                conn = (HttpURLConnection) url.openConnection();
-                conn.setRequestMethod("GET");
-                conn.setConnectTimeout(15000);
-                conn.setReadTimeout(20000);
-                conn.setRequestProperty("X-API-Key", API_KEY);
-                int code = conn.getResponseCode();
-                java.io.InputStream stream = (code >= 200 && code < 300)
-                        ? conn.getInputStream() : conn.getErrorStream();
-                if (stream == null) throw new Exception("Server tidak mengirim respons (HTTP " + code + ")");
-                BufferedReader reader = new BufferedReader(new InputStreamReader(stream, "UTF-8"));
-                StringBuilder response = new StringBuilder();
-                String line;
-                while ((line = reader.readLine()) != null) response.append(line);
-                reader.close();
-                if (code != 200) throw new Exception("HTTP " + code + ": " + response);
-
-                JSONObject json = new JSONObject(response.toString());
-                JSONArray items = json.optJSONArray("produk");
-                if (items == null) throw new Exception("Data 'produk' tidak ditemukan.");
-                ArrayList<JSONObject> hasil = new ArrayList<>();
-                for (int i = 0; i < items.length(); i++) {
-                    JSONObject item = items.optJSONObject(i);
-                    if (item != null) hasil.add(item);
-                }
-
-                runOnUiThread(() -> {
-                    sedangMemuatProduk = false;
-                    semuaProduk.clear();
-                    semuaProduk.addAll(hasil);
-                    if (numberInput == null || statusText == null) return;
-                    String nomor = normalisasiNomor(numberInput.getText().toString());
-                    if (nomor.length() >= 4) {
-                        tampilkanProdukSesuaiPrefix(nomor);
-                    } else {
-                        productContainer.removeAllViews();
-                        productContainer.setVisibility(View.GONE);
-                        statusText.setText("Masukkan nomor HP untuk menampilkan produk yang sesuai.");
-                    }
-                });
-            } catch (Exception e) {
-                runOnUiThread(() -> {
-                    sedangMemuatProduk = false;
-                    if (statusText != null) statusText.setText("Gagal memuat produk: " +
-                            (e.getMessage() == null ? "Periksa server/API." : e.getMessage()));
-                });
-            } finally {
-                if (conn != null) conn.disconnect();
-            }
-        }).start();
+    private void confirmProduct(JSONObject p){
+        String n=phoneInput.getText().toString().trim(); if(n.isEmpty()){message("Nomor tujuan","Masukkan nomor tujuan terlebih dahulu.");return;}
+        String detail="Nomor: "+n+"\nProduk: "+p.optString("kode_produk")+"\nHarga: "+rupiah(p.optDouble("harga_jual",0))+"\n\nFitur pengiriman transaksi ke OtomaX belum diaktifkan. Ini hanya pratinjau pilihan produk.";
+        new AlertDialog.Builder(this).setTitle("Konfirmasi Produk").setMessage(detail).setNegativeButton("Kembali",null).setPositiveButton("OK",(d,w)->{}).show();
     }
-
-    private void processTransaction() {
-        String number = numberInput == null ? "" : numberInput.getText().toString().trim();
-        if (number.isEmpty()) {
-            showMessage("Perhatian", "Masukkan nomor tujuan.");
-            return;
-        }
-        if (number.length() < 5 || number.length() > 20) {
-            showMessage("Perhatian", "Periksa kembali nomor tujuan.");
-            return;
-        }
-        if (selectedProduct == null) {
-            showMessage("Perhatian", "Pilih salah satu produk terlebih dahulu.");
-            return;
-        }
-
-        String nama = selectedProduct.optString("nama_produk", "Produk");
-        String nominal = selectedProduct.optString("nominal", "");
-        String kode = selectedProduct.optString("kode_produk", "");
-        String harga = formatRupiah(selectedProduct.optDouble("harga_jual", 0));
-        String detail = "Nomor tujuan: " + number + "\nProduk: " + nama
-                + (nominal.isEmpty() || nominal.equals("null") ? "" : "\nNominal: " + nominal)
-                + "\nHarga: " + harga + "\nKode produk: " + kode
-                + "\n\nIni hanya konfirmasi simulasi. Belum ada transaksi yang dikirim ke OtomaX.";
-
-        new AlertDialog.Builder(this)
-                .setTitle("Konfirmasi Pembelian")
-                .setMessage(detail)
-                .setNegativeButton("UBAH", null)
-                .setPositiveButton("KONFIRMASI", (dialog, which) ->
-                        showMessage("Mode Simulasi", "Data pesanan sudah diperiksa.\n\nBelum dikirim ke OtomaX dan saldo tidak dipotong."))
-                .show();
-    }
-
-    private void pickContact() {
-        try {
-            Intent intent = new Intent(
-                    Intent.ACTION_PICK,
-                    ContactsContract.CommonDataKinds.Phone.CONTENT_URI
-            );
-            startActivityForResult(intent, REQUEST_CONTACT);
-        } catch (Exception e) {
-            showMessage("Kontak", "Tidak dapat membuka kontak.");
-        }
-    }
-
-    @Override
-    protected void onActivityResult(
-            int requestCode, int resultCode, Intent data
-    ) {
-        super.onActivityResult(requestCode, resultCode, data);
-
-        if (requestCode == REQUEST_CONTACT
-                && resultCode == RESULT_OK
-                && data != null) {
-
-            Cursor cursor = null;
-
-            try {
-                cursor = getContentResolver().query(
-                        data.getData(),
-                        new String[]{
-                                ContactsContract.CommonDataKinds.Phone.NUMBER
-                        },
-                        null, null, null
-                );
-
-                if (cursor != null && cursor.moveToFirst()) {
-                    String phone = cursor.getString(0);
-
-                    if (numberInput != null) {
-                        numberInput.setText(phone);
-                    }
-                }
-            } catch (Exception e) {
-                showMessage("Kontak", "Gagal mengambil nomor.");
-            } finally {
-                if (cursor != null) cursor.close();
-            }
-        }
-    }
-
-    private void showDeposit() {
-        new AlertDialog.Builder(this)
-                .setTitle("ISI SALDO NASYAH CELL")
-                .setMessage(
-                        "Menu deposit siap dikembangkan.\n\n"
-                                + "Pembayaran bank dan QRIS akan "
-                                + "dihubungkan setelah sistem deposit tersedia."
-                )
-                .setPositiveButton("OK", null)
-                .show();
-    }
-
-    private void showQRIS() {
-        new AlertDialog.Builder(this)
-                .setTitle("PEMBAYARAN QRIS")
-                .setMessage(
-                        "Fitur QRIS belum terhubung dengan penyedia pembayaran."
-                )
-                .setPositiveButton("OK", null)
-                .show();
-    }
-
-    private void showHistory() {
-        showMessage("Riwayat Transaksi",
-                "Belum ada transaksi.");
-    }
-
-    private void showAccount() {
-        showMessage("Akun NASYAH CELL",
-                "Menu profil dan pengaturan akun akan dikembangkan.");
-    }
-
-    private void showMoreMenu(View anchor) {
-        String[] options = {
-                "Beranda", "Riwayat", "Isi Saldo", "Akun"
-        };
-
-        new AlertDialog.Builder(this)
-                .setTitle("Menu NASYAH CELL")
-                .setItems(options, (dialog, which) -> {
-                    switch (which) {
-                        case 0:
-                            showHome();
-                            break;
-                        case 1:
-                            showHistory();
-                            break;
-                        case 2:
-                            showDeposit();
-                            break;
-                        case 3:
-                            showAccount();
-                            break;
-                    }
-                })
-                .show();
-    }
-
-    private TextView button(String value) {
-        TextView b = text(value, 15, Color.WHITE, true);
-        b.setGravity(Gravity.CENTER);
-        b.setPadding(dp(10), dp(12), dp(10), dp(12));
-        b.setBackground(round(RED, 12));
-        return b;
-    }
-
-    private TextView text(
-            String value, int size, int color, boolean bold
-    ) {
-        TextView t = new TextView(this);
-        t.setText(value);
-        t.setTextSize(size);
-        t.setTextColor(color);
-
-        if (bold) {
-            t.setTypeface(null, Typeface.BOLD);
-        }
-
-        return t;
-    }
-
-    private GradientDrawable round(int color, int radius) {
-        GradientDrawable d = new GradientDrawable();
-        d.setColor(color);
-        d.setCornerRadius(dp(radius));
-        return d;
-    }
-
-    private LinearLayout.LayoutParams wrap() {
-        return new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT
-        );
-    }
-
-    private int dp(int value) {
-        return (int) (
-                value * getResources().getDisplayMetrics().density
-        );
-    }
-
-    private void showMessage(String title, String message) {
-        new AlertDialog.Builder(this)
-                .setTitle(title)
-                .setMessage(message)
-                .setPositiveButton("OK", null)
-                .show();
-    }
-
-    @Override
-    public void onBackPressed() {
-        if (selectedCategory != null) {
-            showHome();
-        } else {
-            new AlertDialog.Builder(this)
-                    .setTitle("Keluar Aplikasi")
-                    .setMessage("Yakin ingin keluar dari NASYAH CELL?")
-                    .setNegativeButton("Tidak", null)
-                    .setPositiveButton("Ya",
-                            (dialog, which) -> finish())
-                    .show();
-        }
-    }
+    private void pickContact(){try{Intent i=new Intent(Intent.ACTION_PICK,ContactsContract.CommonDataKinds.Phone.CONTENT_URI);startActivityForResult(i,REQUEST_CONTACT);}catch(Exception e){message("Kontak","Tidak dapat membuka kontak.");}}
+    @Override protected void onActivityResult(int req,int result,Intent data){super.onActivityResult(req,result,data);if(req==REQUEST_CONTACT&&result==RESULT_OK&&data!=null){Cursor c=null;try{c=getContentResolver().query(data.getData(),new String[]{ContactsContract.CommonDataKinds.Phone.NUMBER},null,null,null);if(c!=null&&c.moveToFirst()&&phoneInput!=null)phoneInput.setText(c.getString(0));}catch(Exception e){message("Kontak","Gagal mengambil nomor.");}finally{if(c!=null)c.close();}}}
+    @Override public void onBackPressed(){if(!selectedCategory.isEmpty())showHome();else new AlertDialog.Builder(this).setTitle("Keluar Aplikasi").setMessage("Yakin ingin keluar dari NASYAH CELL?").setNegativeButton("Tidak",null).setPositiveButton("Ya",(d,w)->finish()).show();}
 }
