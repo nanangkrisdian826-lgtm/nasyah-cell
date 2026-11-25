@@ -13,6 +13,8 @@ import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.*;
+import android.text.Editable;
+import android.text.TextWatcher;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import java.io.BufferedReader;
@@ -39,6 +41,8 @@ public class MainActivity extends Activity {
     private final ArrayList<JSONObject> products = new ArrayList<>();
     private String selectedCategory = "";
     private JSONObject selectedProduct;
+    private ArrayList<JSONObject> categoryProducts = new ArrayList<>();
+    private boolean renderingProducts = false;
     private double saldoValue = 0;
     private final String[] categories = {"Pulsa", "Paket Data", "Token PLN", "Telepon & SMS", "Voucher Data", "Masa Aktif", "Paket Terbaik", "Game", "Kirim Uang", "Kartu Perdana", "Layanan Digital"};
     private final String[] icons = {"📱", "🌐", "💡", "☎", "🎟", "🗓", "🏷", "🎮", "💸", "💳", "🛒"};
@@ -104,6 +108,11 @@ public class MainActivity extends Activity {
         LinearLayout nr=new LinearLayout(this); nr.setGravity(Gravity.CENTER_VERTICAL); LinearLayout.LayoutParams nrp=lp(-1,52); nrp.topMargin=dp(8); numberCard.addView(nr,nrp);
         phoneInput=new EditText(this); phoneInput.setSingleLine(true); phoneInput.setTextSize(15); phoneInput.setHint("Masukkan nomor tujuan"); phoneInput.setInputType(3); phoneInput.setPadding(dp(10),0,dp(10),0); phoneInput.setBackground(bg(BG,9)); nr.addView(phoneInput,new LinearLayout.LayoutParams(0,-1,1));
         TextView contact=tv("Kontak",13,Color.WHITE,true); contact.setGravity(Gravity.CENTER); contact.setBackground(bg(RED,9)); LinearLayout.LayoutParams clp=lp(82,-1); clp.leftMargin=dp(8); nr.addView(contact,clp); contact.setOnClickListener(v->pickContact());
+        phoneInput.addTextChangedListener(new TextWatcher(){
+            @Override public void beforeTextChanged(CharSequence s,int st,int count,int after){}
+            @Override public void onTextChanged(CharSequence s,int st,int before,int count){ if(!renderingProducts) filterProductsByNumber(); }
+            @Override public void afterTextChanged(Editable e){}
+        });
         TextView choose=tv("Pilih Nominal / Produk",17,Color.BLACK,true); LinearLayout.LayoutParams chp=lp(-1,-2); chp.topMargin=dp(20); body.addView(choose,chp);
         pageStatus=tv("Memuat produk dari OtomaX...",12,Color.GRAY,false); LinearLayout.LayoutParams psp=lp(-1,-2); psp.topMargin=dp(6); body.addView(pageStatus,psp);
         productList=new LinearLayout(this); productList.setOrientation(LinearLayout.VERTICAL); LinearLayout.LayoutParams plp=lp(-1,-2); plp.topMargin=dp(10); body.addView(productList,plp);
@@ -111,15 +120,73 @@ public class MainActivity extends Activity {
     }
 
     private void loadProducts(String category){
+        pageStatus.setText("Masukkan nomor tujuan untuk melihat produk yang sesuai.");
+        productList.removeAllViews();
         new Thread(()->{ try{
-            JSONObject response=getJson(SERVER_URL+"/api/produk"); JSONArray arr=response.optJSONArray("produk"); if(arr==null)throw new Exception("Daftar produk tidak ditemukan."); ArrayList<JSONObject> found=new ArrayList<>();
-            for(int i=0;i<arr.length();i++){JSONObject p=arr.optJSONObject(i);if(p!=null&&p.optString("kategori","").trim().equalsIgnoreCase(category))found.add(p);}
-            runOnUiThread(()->renderProducts(found,category));
+            JSONObject response=getJson(SERVER_URL+"/api/produk?kategori="+java.net.URLEncoder.encode(category,"UTF-8"));
+            JSONArray arr=response.optJSONArray("produk"); if(arr==null)throw new Exception("Daftar produk tidak ditemukan.");
+            ArrayList<JSONObject> found=new ArrayList<>();
+            for(int i=0;i<arr.length();i++){JSONObject item=arr.optJSONObject(i);if(item!=null)found.add(item);}
+            runOnUiThread(()->{categoryProducts=found;filterProductsByNumber();});
         }catch(Exception e){runOnUiThread(()->{if(pageStatus!=null)pageStatus.setText("Gagal memuat produk: "+e.getMessage());});}}).start();
     }
-    private void renderProducts(ArrayList<JSONObject> found,String category){
-        if(productList==null||pageStatus==null)return; products.clear();products.addAll(found);productList.removeAllViews(); pageStatus.setText(found.size()+" produk tersedia dari OtomaX");
-        if(found.isEmpty()){TextView empty=tv("Belum ada produk untuk kategori "+category,14,Color.GRAY,false); productList.addView(empty);return;}
+
+    // Deteksi operator berdasarkan awalan nomor Indonesia. Produk hanya ditampilkan
+    // jika nama operator dari database OtomaX cocok, agar produk operator lain tidak salah dipilih.
+    private String detectOperator(String raw){
+        String n=raw.replaceAll("[^0-9]","");
+        if(n.startsWith("62")) n="0"+n.substring(2);
+        if(n.startsWith("8")) n="0"+n;
+        if(n.length()<4) return "";
+        String p4=n.substring(0,4);
+        String p3=n.substring(0,3);
+        if(p4.matches("0856|0857|0858|0814|0815|0816")) return "INDOSAT";
+        if(p4.matches("0811|0812|0813|0821|0822|0823|0852|0853|0851")) return "TELKOMSEL";
+        if(p4.matches("0817|0818|0819|0859|0877|0878")) return "XL";
+        if(p4.matches("0831|0832|0833|0838")) return "AXIS";
+        if(p4.matches("0895|0896|0897|0898|0899")) return "TRI";
+        if(p4.matches("0881|0882|0883|0884|0885|0886|0887|0888|0889")) return "SMARTFREN";
+        if(p3.equals("085")) return "";
+        return "";
+    }
+
+    private boolean providerMatches(JSONObject p,String operator){
+        String provider=(p.optString("nama_provider","")+" "+p.optString("nama_produk","")).toUpperCase(Locale.ROOT);
+        if(operator.equals("INDOSAT")) return provider.contains("INDOSAT")||provider.contains("IM3")||provider.contains("MENTARI")||provider.contains("MATRIX");
+        if(operator.equals("TELKOMSEL")) return provider.contains("TELKOMSEL")||provider.contains("SIMPATI")||provider.contains("AS ")||provider.contains("BY.U")||provider.contains("BYU");
+        if(operator.equals("XL")) return provider.contains("XL")||provider.contains("XL AXIATA");
+        if(operator.equals("AXIS")) return provider.contains("AXIS");
+        if(operator.equals("TRI")) return provider.contains("TRI")||provider.contains("THREE");
+        if(operator.equals("SMARTFREN")) return provider.contains("SMARTFREN");
+        return false;
+    }
+
+    private void filterProductsByNumber(){
+        if(productList==null||pageStatus==null||phoneInput==null)return;
+        String number=phoneInput.getText().toString().trim();
+        if(number.isEmpty()){
+            productList.removeAllViews();
+            pageStatus.setText("Masukkan nomor tujuan untuk melihat produk yang sesuai.");
+            return;
+        }
+        String operator=detectOperator(number);
+        if(operator.isEmpty()){
+            productList.removeAllViews();
+            pageStatus.setText("Operator belum dikenali. Periksa nomor tujuan.");
+            return;
+        }
+        ArrayList<JSONObject> matched=new ArrayList<>();
+        for(JSONObject p:categoryProducts) if(providerMatches(p,operator)) matched.add(p);
+        renderProducts(matched,selectedCategory,operator);
+    }
+
+    private void renderProducts(ArrayList<JSONObject> found,String category,String operator){
+        if(productList==null||pageStatus==null)return; products.clear();products.addAll(found);productList.removeAllViews();
+        pageStatus.setText(operator+" • "+found.size()+" produk tersedia dari OtomaX");
+        if(found.isEmpty()){
+            TextView empty=tv("Belum ada produk "+operator+" yang cocok di data OtomaX. Produk operator lain disembunyikan agar tidak salah transaksi.",14,Color.GRAY,false);
+            empty.setPadding(dp(4),dp(8),dp(4),dp(8)); productList.addView(empty);return;
+        }
         for(JSONObject p:found){
             boolean open=p.optString("status_produk","OPEN").equalsIgnoreCase("OPEN");
             LinearLayout card=new LinearLayout(this);card.setOrientation(LinearLayout.VERTICAL);card.setPadding(dp(15),dp(13),dp(15),dp(13));card.setBackground(bg(Color.WHITE,13));
