@@ -14,6 +14,8 @@ import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.*;
+import android.text.Editable;
+import android.text.TextWatcher;
 
 import org.json.JSONObject;
 import org.json.JSONArray;
@@ -51,6 +53,9 @@ public class MainActivity extends Activity {
     private LinearLayout productContainer;
     private JSONObject selectedProduct;
     private final ArrayList<JSONObject> daftarProduk = new ArrayList<>();
+    private final ArrayList<JSONObject> semuaProduk = new ArrayList<>();
+    private String kategoriAktif = "";
+    private boolean sedangMemuatProduk = false;
     private ArrayAdapter<String> productAdapter;
 
     private boolean saldoVisible = false;
@@ -535,6 +540,10 @@ public class MainActivity extends Activity {
 
     private void showProduct(String category) {
         selectedProduct = null;
+        kategoriAktif = category;
+        semuaProduk.clear();
+        daftarProduk.clear();
+        sedangMemuatProduk = false;
         LinearLayout page = new LinearLayout(this);
         page.setOrientation(LinearLayout.VERTICAL);
         page.setBackgroundColor(BG);
@@ -587,7 +596,7 @@ public class MainActivity extends Activity {
         productLabelLp.topMargin = dp(20);
         body.addView(productLabel, productLabelLp);
 
-        statusText = text("Mengambil daftar produk dari OtomaX...", 13, Color.GRAY, false);
+        statusText = text("Masukkan nomor HP terlebih dahulu. Produk akan muncul sesuai prefix nomor.", 13, Color.GRAY, false);
         LinearLayout.LayoutParams statusLp = wrap();
         statusLp.topMargin = dp(7);
         body.addView(statusText, statusLp);
@@ -612,12 +621,106 @@ public class MainActivity extends Activity {
         scroll.addView(body);
         page.addView(scroll, new LinearLayout.LayoutParams(-1, 0, 1));
         setContentView(page);
-        loadProducts(category);
+
+        // Harga sengaja disembunyikan sampai nomor tujuan cukup untuk membaca prefix.
+        productContainer.setVisibility(View.GONE);
+        numberInput.addTextChangedListener(new TextWatcher() {
+            @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) { }
+            @Override public void onTextChanged(CharSequence s, int start, int before, int count) {
+                String nomor = normalisasiNomor(s.toString());
+                selectedProduct = null;
+                if (nomor.length() < 4) {
+                    daftarProduk.clear();
+                    productContainer.removeAllViews();
+                    productContainer.setVisibility(View.GONE);
+                    statusText.setText("Masukkan minimal 4 angka nomor HP untuk menampilkan produk sesuai operator.");
+                    return;
+                }
+                if (!semuaProduk.isEmpty()) {
+                    tampilkanProdukSesuaiPrefix(nomor);
+                } else if (!sedangMemuatProduk) {
+                    loadProducts(kategoriAktif);
+                }
+            }
+            @Override public void afterTextChanged(Editable s) { }
+        });
+    }
+
+    private String normalisasiNomor(String nomor) {
+        if (nomor == null) return "";
+        String angka = nomor.replaceAll("[^0-9]", "");
+        if (angka.startsWith("62")) angka = "0" + angka.substring(2);
+        return angka;
+    }
+
+    private boolean prefixCocok(String nomor, JSONObject item) {
+        String daftarPrefix = item.optString("prefix_tujuan",
+                item.optString("prefix", item.optString("prefix_operator", "")));
+        if (daftarPrefix == null || daftarPrefix.trim().isEmpty() || "null".equalsIgnoreCase(daftarPrefix)) {
+            return false;
+        }
+        String[] prefixes = daftarPrefix.split("[,;|\\s]+");
+        for (String p : prefixes) {
+            String prefix = p.replaceAll("[^0-9]", "");
+            if (prefix.startsWith("62")) prefix = "0" + prefix.substring(2);
+            if (!prefix.isEmpty() && nomor.startsWith(prefix)) return true;
+        }
+        return false;
+    }
+
+    private void tampilkanProdukSesuaiPrefix(String nomor) {
+        if (productContainer == null || statusText == null) return;
+        daftarProduk.clear();
+        for (JSONObject item : semuaProduk) {
+            String kategoriDb = item.optString("kategori", "").trim();
+            if (kategoriDb.equalsIgnoreCase(kategoriAktif) && prefixCocok(nomor, item)) {
+                daftarProduk.add(item);
+            }
+        }
+        productContainer.removeAllViews();
+        selectedProduct = null;
+        if (daftarProduk.isEmpty()) {
+            productContainer.setVisibility(View.GONE);
+            statusText.setText("Produk untuk prefix nomor ini belum ditemukan. Pastikan API mengirim field prefix_tujuan dari data operator OtomaX.");
+            return;
+        }
+        productContainer.setVisibility(View.VISIBLE);
+        statusText.setText(daftarProduk.size() + " produk cocok dengan nomor tujuan. Pilih salah satu:");
+        for (int i = 0; i < daftarProduk.size(); i++) {
+            final JSONObject item = daftarProduk.get(i);
+            final String judul = item.optString("nama_produk", "Produk")
+                    + (item.optString("nominal", "").isEmpty() ? "" : " - " + item.optString("nominal", ""));
+            final String harga = formatRupiah(item.optDouble("harga_jual", 0));
+            LinearLayout option = new LinearLayout(this);
+            option.setOrientation(LinearLayout.VERTICAL);
+            option.setPadding(dp(15), dp(13), dp(15), dp(13));
+            option.setBackground(round(Color.WHITE, 12));
+            option.addView(text(judul, 15, Color.BLACK, true));
+            TextView priceText = text(harga, 14, RED, true);
+            LinearLayout.LayoutParams priceLp = wrap();
+            priceLp.topMargin = dp(6);
+            option.addView(priceText, priceLp);
+            LinearLayout.LayoutParams optionLp = wrap();
+            optionLp.bottomMargin = dp(9);
+            productContainer.addView(option, optionLp);
+            option.setOnClickListener(v -> {
+                selectedProduct = item;
+                for (int j = 0; j < productContainer.getChildCount(); j++) {
+                    productContainer.getChildAt(j).setBackground(round(Color.WHITE, 12));
+                }
+                option.setBackground(round(Color.rgb(255, 235, 235), 12));
+                statusText.setText("Dipilih: " + judul + " | " + harga);
+            });
+        }
     }
 
     private void loadProducts(String category) {
-        daftarProduk.clear();
-        if (productContainer != null) productContainer.removeAllViews();
+        sedangMemuatProduk = true;
+        statusText.setText("Mencari produk yang sesuai dengan prefix nomor...");
+        if (productContainer != null) {
+            productContainer.removeAllViews();
+            productContainer.setVisibility(View.GONE);
+        }
 
         new Thread(() -> {
             HttpURLConnection conn = null;
@@ -645,58 +748,26 @@ public class MainActivity extends Activity {
                 ArrayList<JSONObject> hasil = new ArrayList<>();
                 for (int i = 0; i < items.length(); i++) {
                     JSONObject item = items.optJSONObject(i);
-                    if (item == null) continue;
-                    String kategoriDb = item.optString("kategori", "").trim();
-                    if (kategoriDb.equalsIgnoreCase(category)) hasil.add(item);
+                    if (item != null) hasil.add(item);
                 }
 
                 runOnUiThread(() -> {
-                    daftarProduk.clear();
-                    daftarProduk.addAll(hasil);
-                    if (productContainer == null || statusText == null) return;
-                    productContainer.removeAllViews();
-                    if (hasil.isEmpty()) {
-                        statusText.setText("Belum ada produk untuk kategori ini. Kategori harus sama dengan Catatan Provider di OtomaX: " + category);
-                        return;
-                    }
-                    statusText.setText(hasil.size() + " produk tersedia dari OtomaX. Pilih salah satu:");
-                    for (int i = 0; i < hasil.size(); i++) {
-                        final JSONObject item = hasil.get(i);
-                        String nama = item.optString("nama_produk", "Produk");
-                        String nominal = item.optString("nominal", "");
-                        String harga = formatRupiah(item.optDouble("harga_jual", 0));
-                        String judul = nama;
-                        if (!nominal.isEmpty() && !nominal.equals("null")) judul += " - " + nominal;
-
-                        LinearLayout option = new LinearLayout(this);
-                        option.setOrientation(LinearLayout.VERTICAL);
-                        option.setPadding(dp(15), dp(13), dp(15), dp(13));
-                        option.setBackground(round(Color.WHITE, 12));
-                        TextView nameText = text(judul, 15, Color.BLACK, true);
-                        TextView priceText = text(harga, 14, RED, true);
-                        option.addView(nameText);
-                        LinearLayout.LayoutParams priceLp = wrap();
-                        priceLp.topMargin = dp(6);
-                        option.addView(priceText, priceLp);
-                        LinearLayout.LayoutParams optionLp = wrap();
-                        optionLp.bottomMargin = dp(9);
-                        productContainer.addView(option, optionLp);
-                        // Salin nilai ke variabel final agar aman dipakai lambda.
-                        final String judulDipilih = judul;
-                        final String hargaDipilih = harga;
-                        final JSONObject itemDipilih = item;
-                        option.setOnClickListener(v -> {
-                            selectedProduct = itemDipilih;
-                            for (int j = 0; j < productContainer.getChildCount(); j++) {
-                                productContainer.getChildAt(j).setBackground(round(Color.WHITE, 12));
-                            }
-                            option.setBackground(round(Color.rgb(255, 235, 235), 12));
-                            statusText.setText("Dipilih: " + judulDipilih + " | " + hargaDipilih);
-                        });
+                    sedangMemuatProduk = false;
+                    semuaProduk.clear();
+                    semuaProduk.addAll(hasil);
+                    if (numberInput == null || statusText == null) return;
+                    String nomor = normalisasiNomor(numberInput.getText().toString());
+                    if (nomor.length() >= 4) {
+                        tampilkanProdukSesuaiPrefix(nomor);
+                    } else {
+                        productContainer.removeAllViews();
+                        productContainer.setVisibility(View.GONE);
+                        statusText.setText("Masukkan nomor HP untuk menampilkan produk yang sesuai.");
                     }
                 });
             } catch (Exception e) {
                 runOnUiThread(() -> {
+                    sedangMemuatProduk = false;
                     if (statusText != null) statusText.setText("Gagal memuat produk: " +
                             (e.getMessage() == null ? "Periksa server/API." : e.getMessage()));
                 });
