@@ -38,10 +38,10 @@ public class MainActivity extends Activity {
 
     // Sesuaikan URL ini jika alamat Cloudflare Tunnel sudah berubah.
     private static final String SERVER_URL =
-    "https://hong-processed-transcription-ideal.trycloudflare.com";
+            "https://hong-processed-transcription-ideal.trycloudflare.com";
 
     // Isi dengan API key yang sama persis seperti di config.json server.
-    private static final String API_KEY = "NasyahCell-2026-KunciRahasia-73921";
+    private static final String API_KEY = "GANTI_DENGAN_API_KEY_CONFIG_JSON";
 
     private EditText numberInput;
     private Spinner productSpinner;
@@ -404,7 +404,6 @@ public class MainActivity extends Activity {
                     if (saldoAmountText != null) {
                         saldoAmountText.setText("💰  " + nominal);
                     }
-                    Toast.makeText(this, Toast.LENGTH_SHORT).show();
                 });
             } catch (Exception e) {
                 runOnUiThread(() -> showMessage("Gagal mengambil saldo",
