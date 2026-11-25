@@ -48,6 +48,8 @@ public class MainActivity extends Activity {
     private EditText numberInput;
     private Spinner productSpinner;
     private TextView statusText;
+    private LinearLayout productContainer;
+    private JSONObject selectedProduct;
     private final ArrayList<JSONObject> daftarProduk = new ArrayList<>();
     private ArrayAdapter<String> productAdapter;
 
@@ -532,37 +534,36 @@ public class MainActivity extends Activity {
     }
 
     private void showProduct(String category) {
+        selectedProduct = null;
         LinearLayout page = new LinearLayout(this);
         page.setOrientation(LinearLayout.VERTICAL);
-        page.setPadding(dp(18), dp(20), dp(18), dp(20));
         page.setBackgroundColor(BG);
 
         LinearLayout top = new LinearLayout(this);
         top.setGravity(Gravity.CENTER_VERTICAL);
+        top.setPadding(dp(16), dp(8), dp(16), dp(8));
+        top.setBackgroundColor(Color.WHITE);
 
         TextView back = text("‹", 35, RED, true);
         top.addView(back, new LinearLayout.LayoutParams(dp(45), dp(50)));
-
-        TextView title = text(category, 22, Color.BLACK, true);
+        TextView title = text(category, 21, Color.BLACK, true);
         top.addView(title);
-
         page.addView(top);
-
         back.setOnClickListener(v -> showHome());
+
+        ScrollView scroll = new ScrollView(this);
+        LinearLayout body = new LinearLayout(this);
+        body.setOrientation(LinearLayout.VERTICAL);
+        body.setPadding(dp(16), dp(16), dp(16), dp(22));
 
         LinearLayout card = new LinearLayout(this);
         card.setOrientation(LinearLayout.VERTICAL);
         card.setPadding(dp(16), dp(18), dp(16), dp(18));
         card.setBackground(round(Color.WHITE, 15));
 
-        TextView numberLabel = text(
-                "Nomor Tujuan", 15, Color.BLACK, true
-        );
-        card.addView(numberLabel);
-
+        card.addView(text("Nomor Tujuan", 15, Color.BLACK, true));
         LinearLayout contactRow = new LinearLayout(this);
         contactRow.setGravity(Gravity.CENTER_VERTICAL);
-
         numberInput = new EditText(this);
         numberInput.setSingleLine(true);
         numberInput.setHint("Masukkan nomor tujuan");
@@ -570,77 +571,53 @@ public class MainActivity extends Activity {
         numberInput.setTextSize(15);
         numberInput.setPadding(dp(10), 0, dp(10), 0);
         numberInput.setBackground(round(BG, 10));
-
-        LinearLayout.LayoutParams numberLp =
-                new LinearLayout.LayoutParams(0, dp(50), 1);
+        LinearLayout.LayoutParams numberLp = new LinearLayout.LayoutParams(0, dp(50), 1);
         numberLp.rightMargin = dp(8);
         contactRow.addView(numberInput, numberLp);
-
         TextView contactButton = button("Kontak");
-        contactRow.addView(contactButton,
-                new LinearLayout.LayoutParams(dp(85), dp(50)));
-
+        contactRow.addView(contactButton, new LinearLayout.LayoutParams(dp(85), dp(50)));
         contactButton.setOnClickListener(v -> pickContact());
-
         LinearLayout.LayoutParams contactLp = wrap();
         contactLp.topMargin = dp(10);
         card.addView(contactRow, contactLp);
+        body.addView(card);
 
-        TextView productLabel = text(
-                "Pilih Produk", 15, Color.BLACK, true
-        );
+        TextView productLabel = text("Pilih Nominal / Produk", 17, Color.BLACK, true);
         LinearLayout.LayoutParams productLabelLp = wrap();
         productLabelLp.topMargin = dp(20);
-        card.addView(productLabel, productLabelLp);
+        body.addView(productLabel, productLabelLp);
 
-        productSpinner = new Spinner(this);
-
-        productAdapter = new ArrayAdapter<>(
-                this,
-                android.R.layout.simple_spinner_item,
-                new ArrayList<String>()
-        );
-        productAdapter.setDropDownViewResource(
-                android.R.layout.simple_spinner_dropdown_item
-        );
-        productSpinner.setAdapter(productAdapter);
-        productAdapter.add("Memuat daftar produk...");
-        card.addView(productSpinner);
-
-        // Mengambil daftar produk dan harga dari OtomaX melalui server.
-        loadProducts(category);
-
-        TextView buy = button("LANJUTKAN TRANSAKSI");
-        LinearLayout.LayoutParams buyLp = wrap();
-        buyLp.topMargin = dp(20);
-        card.addView(buy, buyLp);
-
-        statusText = text(
-                "Status: Siap melakukan transaksi",
-                13, Color.GRAY, false
-        );
-
+        statusText = text("Mengambil daftar produk dari OtomaX...", 13, Color.GRAY, false);
         LinearLayout.LayoutParams statusLp = wrap();
-        statusLp.topMargin = dp(15);
-        card.addView(statusText, statusLp);
+        statusLp.topMargin = dp(7);
+        body.addView(statusText, statusLp);
 
-        page.addView(card);
+        productContainer = new LinearLayout(this);
+        productContainer.setOrientation(LinearLayout.VERTICAL);
+        LinearLayout.LayoutParams listLp = wrap();
+        listLp.topMargin = dp(12);
+        body.addView(productContainer, listLp);
 
-        TextView note = text(
-                "Transaksi belum terhubung ke server OtomaX.",
-                12, Color.GRAY, false
-        );
-        LinearLayout.LayoutParams noteLp = wrap();
-        noteLp.topMargin = dp(15);
-        page.addView(note, noteLp);
-
-        setContentView(page);
-
+        TextView buy = button("LANJUTKAN");
+        LinearLayout.LayoutParams buyLp = wrap();
+        buyLp.topMargin = dp(18);
+        body.addView(buy, buyLp);
         buy.setOnClickListener(v -> processTransaction());
+
+        TextView note = text("Mode uji coba: pesanan belum dikirim ke OtomaX.", 12, Color.GRAY, false);
+        LinearLayout.LayoutParams noteLp = wrap();
+        noteLp.topMargin = dp(12);
+        body.addView(note, noteLp);
+
+        scroll.addView(body);
+        page.addView(scroll, new LinearLayout.LayoutParams(-1, 0, 1));
+        setContentView(page);
+        loadProducts(category);
     }
 
     private void loadProducts(String category) {
         daftarProduk.clear();
+        if (productContainer != null) productContainer.removeAllViews();
 
         new Thread(() -> {
             HttpURLConnection conn = null;
@@ -651,27 +628,20 @@ public class MainActivity extends Activity {
                 conn.setConnectTimeout(15000);
                 conn.setReadTimeout(20000);
                 conn.setRequestProperty("X-API-Key", API_KEY);
-
                 int code = conn.getResponseCode();
                 java.io.InputStream stream = (code >= 200 && code < 300)
                         ? conn.getInputStream() : conn.getErrorStream();
-                if (stream == null) {
-                    throw new Exception("Server tidak mengirim respons (HTTP " + code + ")");
-                }
-
-                BufferedReader reader = new BufferedReader(
-                        new InputStreamReader(stream, "UTF-8"));
+                if (stream == null) throw new Exception("Server tidak mengirim respons (HTTP " + code + ")");
+                BufferedReader reader = new BufferedReader(new InputStreamReader(stream, "UTF-8"));
                 StringBuilder response = new StringBuilder();
                 String line;
                 while ((line = reader.readLine()) != null) response.append(line);
                 reader.close();
-
                 if (code != 200) throw new Exception("HTTP " + code + ": " + response);
 
                 JSONObject json = new JSONObject(response.toString());
                 JSONArray items = json.optJSONArray("produk");
                 if (items == null) throw new Exception("Data 'produk' tidak ditemukan.");
-
                 ArrayList<JSONObject> hasil = new ArrayList<>();
                 for (int i = 0; i < items.length(); i++) {
                     JSONObject item = items.optJSONObject(i);
@@ -683,42 +653,48 @@ public class MainActivity extends Activity {
                 runOnUiThread(() -> {
                     daftarProduk.clear();
                     daftarProduk.addAll(hasil);
-                    productAdapter.clear();
-
+                    if (productContainer == null || statusText == null) return;
+                    productContainer.removeAllViews();
                     if (hasil.isEmpty()) {
-                        productAdapter.add("Produk kategori " + category + " belum tersedia");
-                        if (statusText != null) {
-                            statusText.setText("Tidak ada produk dengan Catatan Provider = "
-                                    + category + ". Periksa kolom Catatan di OtomaX.");
-                        }
-                    } else {
-                        productAdapter.add("Pilih Produk (" + hasil.size() + ")");
-                        for (JSONObject item : hasil) {
-                            String nama = item.optString("nama_produk", "Produk");
-                            String nominal = item.optString("nominal", "");
-                            String harga = formatRupiah(item.optDouble("harga_jual", 0));
-                            String label = nama;
-                            if (!nominal.isEmpty() && !nominal.equals("null")) {
-                                label += " - " + nominal;
-                            }
-                            productAdapter.add(label + " | " + harga);
-                        }
-                        if (statusText != null) {
-                            statusText.setText("Daftar produk berhasil dimuat dari OtomaX.");
-                        }
+                        statusText.setText("Belum ada produk untuk kategori ini. Kategori harus sama dengan Catatan Provider di OtomaX: " + category);
+                        return;
                     }
-                    productAdapter.notifyDataSetChanged();
-                });
+                    statusText.setText(hasil.size() + " produk tersedia dari OtomaX. Pilih salah satu:");
+                    for (int i = 0; i < hasil.size(); i++) {
+                        final JSONObject item = hasil.get(i);
+                        String nama = item.optString("nama_produk", "Produk");
+                        String nominal = item.optString("nominal", "");
+                        String harga = formatRupiah(item.optDouble("harga_jual", 0));
+                        String judul = nama;
+                        if (!nominal.isEmpty() && !nominal.equals("null")) judul += " - " + nominal;
 
+                        LinearLayout option = new LinearLayout(this);
+                        option.setOrientation(LinearLayout.VERTICAL);
+                        option.setPadding(dp(15), dp(13), dp(15), dp(13));
+                        option.setBackground(round(Color.WHITE, 12));
+                        TextView nameText = text(judul, 15, Color.BLACK, true);
+                        TextView priceText = text(harga, 14, RED, true);
+                        option.addView(nameText);
+                        LinearLayout.LayoutParams priceLp = wrap();
+                        priceLp.topMargin = dp(6);
+                        option.addView(priceText, priceLp);
+                        LinearLayout.LayoutParams optionLp = wrap();
+                        optionLp.bottomMargin = dp(9);
+                        productContainer.addView(option, optionLp);
+                        option.setOnClickListener(v -> {
+                            selectedProduct = item;
+                            for (int j = 0; j < productContainer.getChildCount(); j++) {
+                                productContainer.getChildAt(j).setBackground(round(Color.WHITE, 12));
+                            }
+                            option.setBackground(round(Color.rgb(255, 235, 235), 12));
+                            statusText.setText("Dipilih: " + judul + " | " + harga);
+                        });
+                    }
+                });
             } catch (Exception e) {
                 runOnUiThread(() -> {
-                    productAdapter.clear();
-                    productAdapter.add("Gagal memuat produk");
-                    productAdapter.notifyDataSetChanged();
-                    if (statusText != null) {
-                        statusText.setText("Gagal memuat produk: "
-                                + (e.getMessage() == null ? "Periksa server/API." : e.getMessage()));
-                    }
+                    if (statusText != null) statusText.setText("Gagal memuat produk: " +
+                            (e.getMessage() == null ? "Periksa server/API." : e.getMessage()));
                 });
             } finally {
                 if (conn != null) conn.disconnect();
@@ -727,39 +703,36 @@ public class MainActivity extends Activity {
     }
 
     private void processTransaction() {
-        String number = numberInput.getText().toString().trim();
-        if (productSpinner.getSelectedItem() == null) {
-            showMessage("Perhatian", "Daftar produk belum tersedia.");
-            return;
-        }
-        int selectedIndex = productSpinner.getSelectedItemPosition();
-        String product = productSpinner.getSelectedItem().toString();
-
+        String number = numberInput == null ? "" : numberInput.getText().toString().trim();
         if (number.isEmpty()) {
             showMessage("Perhatian", "Masukkan nomor tujuan.");
             return;
         }
-
         if (number.length() < 5 || number.length() > 20) {
             showMessage("Perhatian", "Periksa kembali nomor tujuan.");
             return;
         }
-
-        if (selectedIndex <= 0 || daftarProduk.isEmpty()
-                || selectedIndex - 1 >= daftarProduk.size()) {
-            showMessage("Perhatian", "Silakan pilih produk yang tersedia.");
+        if (selectedProduct == null) {
+            showMessage("Perhatian", "Pilih salah satu produk terlebih dahulu.");
             return;
         }
 
-        JSONObject produkDipilih = daftarProduk.get(selectedIndex - 1);
-        String kodeProduk = produkDipilih.optString("kode_produk", "");
+        String nama = selectedProduct.optString("nama_produk", "Produk");
+        String nominal = selectedProduct.optString("nominal", "");
+        String kode = selectedProduct.optString("kode_produk", "");
+        String harga = formatRupiah(selectedProduct.optDouble("harga_jual", 0));
+        String detail = "Nomor tujuan: " + number + "\nProduk: " + nama
+                + (nominal.isEmpty() || nominal.equals("null") ? "" : "\nNominal: " + nominal)
+                + "\nHarga: " + harga + "\nKode produk: " + kode
+                + "\n\nIni hanya konfirmasi simulasi. Belum ada transaksi yang dikirim ke OtomaX.";
 
-        statusText.setText(
-                "Data siap diproses\\nNomor: " + number
-                        + "\\nProduk: " + product
-                        + "\\nKode produk: " + kodeProduk
-                        + "\\n\\nBelum dikirim ke OtomaX."
-        );
+        new AlertDialog.Builder(this)
+                .setTitle("Konfirmasi Pembelian")
+                .setMessage(detail)
+                .setNegativeButton("UBAH", null)
+                .setPositiveButton("KONFIRMASI", (dialog, which) ->
+                        showMessage("Mode Simulasi", "Data pesanan sudah diperiksa.\n\nBelum dikirim ke OtomaX dan saldo tidak dipotong."))
+                .show();
     }
 
     private void pickContact() {
