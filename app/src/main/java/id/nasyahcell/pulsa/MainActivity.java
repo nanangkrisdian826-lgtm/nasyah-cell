@@ -53,6 +53,7 @@ public class MainActivity extends Activity {
     private android.os.Handler searchHandler = new android.os.Handler();
     private Runnable searchRunnable;
     private TextView statusText;
+    private TextView providerNameText;
     private final ArrayList<JSONObject> daftarProduk = new ArrayList<>();
 
     private boolean saldoVisible = false;
@@ -590,15 +591,15 @@ public class MainActivity extends Activity {
         contactLp.topMargin = dp(10);
         card.addView(contactRow, contactLp);
 
-        TextView productLabel = text("Daftar Produk Otomatis", 15, Color.BLACK, true);
-        LinearLayout.LayoutParams productLabelLp = wrap();
-        productLabelLp.topMargin = dp(20);
-        card.addView(productLabel, productLabelLp);
-
-        TextView providerText = text("Masukkan nomor HP untuk mendeteksi provider", 13, BLUE, true);
+        providerNameText = text("Provider: menunggu nomor tujuan", 16, BLUE, true);
         LinearLayout.LayoutParams providerLp = wrap();
-        providerLp.topMargin = dp(8);
-        card.addView(providerText, providerLp);
+        providerLp.topMargin = dp(20);
+        card.addView(providerNameText, providerLp);
+
+        TextView productLabel = text("Daftar Produk", 14, Color.BLACK, true);
+        LinearLayout.LayoutParams productLabelLp = wrap();
+        productLabelLp.topMargin = dp(12);
+        card.addView(productLabel, productLabelLp);
 
         productList = new LinearLayout(this);
         productList.setOrientation(LinearLayout.VERTICAL);
@@ -622,6 +623,7 @@ public class MainActivity extends Activity {
                     if (nomor.length() >= 4) loadProducts(category, nomor);
                     else {
                         daftarProduk.clear();
+                        if (providerNameText != null) providerNameText.setText("Provider: menunggu nomor tujuan");
                         renderProductCards();
                         if (statusText != null) statusText.setText("Masukkan minimal 4 angka nomor HP.");
                     }
@@ -666,7 +668,8 @@ public class MainActivity extends Activity {
     }
 
     private void loadProducts(String category, String nomor) {
-        if (statusText != null) statusText.setText("Mencari provider dan produk...");
+        if (statusText != null) statusText.setText("Mencari provider berdasarkan prefix nomor...");
+        if (providerNameText != null) providerNameText.setText("Provider: sedang dideteksi...");
         new Thread(() -> {
             HttpURLConnection conn = null;
             try {
@@ -702,20 +705,26 @@ public class MainActivity extends Activity {
                         }
                     }
                 }
+                String namaProvider = hasil.isEmpty() ? "Provider tidak dikenali" :
+                        hasil.get(0).optString("nama_provider", "Provider tidak dikenali");
                 runOnUiThread(() -> {
                     daftarProduk.clear();
                     daftarProduk.addAll(hasil);
                     selectedProduct = null;
+                    if (providerNameText != null) {
+                        providerNameText.setText("Provider: " + namaProvider);
+                    }
                     renderProductCards();
                     if (statusText != null) {
                         statusText.setText(hasil.isEmpty()
-                                ? "Produk tidak ditemukan. Periksa prefix dan Catatan Provider di OtomaX."
+                                ? "Provider tidak ditemukan atau belum memiliki produk pada kategori ini. Periksa Filter Prefix Tujuan dan Catatan di OtomaX."
                                 : "Ditemukan " + hasil.size() + " produk untuk nomor " + nomor + ".");
                     }
                 });
             } catch (Exception e) {
                 runOnUiThread(() -> {
                     daftarProduk.clear();
+                    if (providerNameText != null) providerNameText.setText("Provider: gagal dideteksi");
                     renderProductCards();
                     if (statusText != null) statusText.setText("Gagal memuat produk: " + e.getMessage());
                 });
