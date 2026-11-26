@@ -55,6 +55,8 @@ public class MainActivity extends Activity {
     private TextView statusText;
     private TextView providerNameText;
     private final ArrayList<JSONObject> daftarProduk = new ArrayList<>();
+    private final ArrayList<JSONObject> daftarProvider = new ArrayList<>();
+    private String selectedProviderCode = null;
 
     private boolean saldoVisible = false;
     private String selectedCategory = null;
@@ -537,6 +539,10 @@ public class MainActivity extends Activity {
     }
 
     private void showProduct(String category) {
+        selectedProviderCode = null;
+        selectedProduct = null;
+        daftarProvider.clear();
+        daftarProduk.clear();
         LinearLayout page = new LinearLayout(this);
         page.setOrientation(LinearLayout.VERTICAL);
         page.setPadding(dp(18), dp(20), dp(18), dp(20));
@@ -617,13 +623,16 @@ public class MainActivity extends Activity {
             @Override public void beforeTextChanged(CharSequence s, int st, int count, int after) {}
             @Override public void onTextChanged(CharSequence s, int st, int before, int count) {
                 selectedProduct = null;
+                selectedProviderCode = null;
                 if (searchRunnable != null) searchHandler.removeCallbacks(searchRunnable);
                 final String nomor = s.toString().replaceAll("[^0-9]", "");
                 searchRunnable = () -> {
                     if (nomor.length() >= 4) loadProducts(category, nomor);
                     else {
                         daftarProduk.clear();
-                        if (providerNameText != null) providerNameText.setText("Provider: menunggu nomor tujuan");
+                        daftarProvider.clear();
+                        selectedProviderCode = null;
+                        if (providerNameText != null) providerNameText.setText("Pilih Provider");
                         renderProductCards();
                         if (statusText != null) statusText.setText("Masukkan minimal 4 angka nomor HP.");
                     }
@@ -680,7 +689,7 @@ public class MainActivity extends Activity {
 
     private void loadProducts(String category, String nomor) {
         if (statusText != null) statusText.setText("Mencari provider berdasarkan prefix nomor...");
-        if (providerNameText != null) providerNameText.setText("Provider: sedang dideteksi...");
+        if (providerNameText != null) providerNameText.setText("Pilih Provider");
         new Thread(() -> {
             HttpURLConnection conn = null;
             try {
@@ -704,40 +713,69 @@ public class MainActivity extends Activity {
                 reader.close();
                 if (code != 200) throw new Exception("HTTP " + code + ": " + response);
                 JSONObject json = new JSONObject(response.toString());
-                JSONArray items = json.optJSONArray("produk");
-                ArrayList<JSONObject> hasil = new ArrayList<>();
-                if (items != null) {
-                    for (int i = 0; i < items.length(); i++) {
-                        JSONObject item = items.optJSONObject(i);
-                        if (item == null) continue;
-                        if (item.optString("kategori", "").trim().equalsIgnoreCase(category)
-                                && item.optString("status_produk", "OPEN").equalsIgnoreCase("OPEN")) {
-                            hasil.add(item);
+
+                JSONArray providerJson = json.optJSONArray("provider");
+                JSONArray productJson = json.optJSONArray("produk");
+                ArrayList<JSONObject> providers = new ArrayList<>();
+                ArrayList<JSONObject> products = new ArrayList<>();
+
+                if (providerJson != null) {
+                    for (int i = 0; i < providerJson.length(); i++) {
+                        JSONObject item = providerJson.optJSONObject(i);
+                        if (item != null) providers.add(item);
+                    }
+                }
+                if (productJson != null) {
+                    for (int i = 0; i < productJson.length(); i++) {
+                        JSONObject item = productJson.optJSONObject(i);
+                        if (item != null &&
+                                item.optString("kategori", "").trim().equalsIgnoreCase(category)) {
+                            products.add(item);
                         }
                     }
                 }
-                String namaProvider = hasil.isEmpty() ? "Provider tidak dikenali" :
-                        hasil.get(0).optString("nama_provider", "Provider tidak dikenali");
+
+                // Jika server lama belum mengirim array provider, susun dari produk.
+                if (providers.isEmpty()) {
+                    java.util.HashSet<String> seen = new java.util.HashSet<>();
+                    for (JSONObject product : products) {
+                        String providerCode = product.optString("kode_provider", "");
+                        String key = providerCode.isEmpty()
+                                ? product.optString("nama_provider", "") : providerCode;
+                        if (seen.add(key)) {
+                            JSONObject provider = new JSONObject();
+                            provider.put("kode_provider", providerCode);
+                            provider.put("nama_provider", product.optString("nama_provider", "Provider"));
+                            providers.add(provider);
+                        }
+                    }
+                }
+
                 runOnUiThread(() -> {
+                    daftarProvider.clear();
+                    daftarProvider.addAll(providers);
                     daftarProduk.clear();
-                    daftarProduk.addAll(hasil);
+                    daftarProduk.addAll(products);
                     selectedProduct = null;
+                    selectedProviderCode = null;
                     if (providerNameText != null) {
-                        providerNameText.setText("Provider: " + namaProvider);
+                        providerNameText.setText("Pilih Provider");
                     }
                     renderProductCards();
                     if (statusText != null) {
-                        statusText.setText(hasil.isEmpty()
-                                ? "Provider tidak ditemukan atau belum memiliki produk pada kategori ini. Periksa Filter Prefix Tujuan dan Catatan di OtomaX."
-                                : "Ditemukan " + hasil.size() + " produk untuk nomor " + nomor + ".");
+                        statusText.setText(providers.isEmpty()
+                                ? "Tidak ada provider yang cocok dengan prefix nomor " + nomor
+                                : providers.size() + " provider cocok. Pilih nama provider terlebih dahulu.");
                     }
                 });
             } catch (Exception e) {
                 runOnUiThread(() -> {
                     daftarProduk.clear();
-                    if (providerNameText != null) providerNameText.setText("Provider: gagal dideteksi");
+                    daftarProvider.clear();
+                    selectedProviderCode = null;
+                    if (providerNameText != null) providerNameText.setText("Pilih Provider");
                     renderProductCards();
-                    if (statusText != null) statusText.setText("Gagal memuat produk: " + e.getMessage());
+                    if (statusText != null) statusText.setText("Gagal memuat data: " + e.getMessage());
                 });
             } finally {
                 if (conn != null) conn.disconnect();
@@ -748,19 +786,71 @@ public class MainActivity extends Activity {
     private void renderProductCards() {
         if (productList == null) return;
         productList.removeAllViews();
-        if (daftarProduk.isEmpty()) {
-            TextView empty = text("Produk akan muncul setelah nomor dikenali", 13, Color.GRAY, false);
-            empty.setPadding(dp(12), dp(18), dp(12), dp(18));
-            productList.addView(empty);
+
+        // Tahap pertama: tampilkan daftar nama provider, belum menampilkan harga.
+        if (selectedProviderCode == null) {
+            if (daftarProvider.isEmpty()) {
+                TextView empty = text("Provider akan muncul setelah nomor dikenali", 13, Color.GRAY, false);
+                empty.setPadding(dp(12), dp(18), dp(12), dp(18));
+                productList.addView(empty);
+                return;
+            }
+            for (JSONObject provider : daftarProvider) {
+                String namaProvider = provider.optString("nama_provider", "Provider");
+                String kodeProvider = provider.optString("kode_provider", "");
+                LinearLayout providerCard = new LinearLayout(this);
+                providerCard.setOrientation(LinearLayout.VERTICAL);
+                providerCard.setPadding(dp(14), dp(14), dp(14), dp(14));
+                providerCard.setBackground(round(Color.WHITE, 12));
+
+                TextView name = text(namaProvider, 17, BLUE, true);
+                providerCard.addView(name);
+                TextView code = text("Kode provider: " +
+                        (kodeProvider.isEmpty() ? "-" : kodeProvider), 12, Color.GRAY, false);
+                LinearLayout.LayoutParams codeLp = wrap();
+                codeLp.topMargin = dp(5);
+                providerCard.addView(code, codeLp);
+
+                LinearLayout.LayoutParams lp = wrap();
+                lp.topMargin = dp(8);
+                productList.addView(providerCard, lp);
+                providerCard.setOnClickListener(v -> {
+                    selectedProviderCode = kodeProvider.isEmpty() ? namaProvider : kodeProvider;
+                    if (providerNameText != null) {
+                        providerNameText.setText("Provider: " + namaProvider);
+                    }
+                    selectedProduct = null;
+                    renderProductCards();
+                    if (statusText != null) statusText.setText("Pilih produk yang diinginkan.");
+                });
+            }
             return;
         }
 
+        // Tombol kembali ke daftar provider.
+        TextView backProviders = text("‹ Kembali ke daftar provider", 14, BLUE, true);
+        backProviders.setPadding(0, dp(4), 0, dp(8));
+        productList.addView(backProviders);
+        backProviders.setOnClickListener(v -> {
+            selectedProviderCode = null;
+            selectedProduct = null;
+            if (providerNameText != null) providerNameText.setText("Pilih Provider");
+            renderProductCards();
+        });
+
+        int count = 0;
         for (JSONObject item : daftarProduk) {
+            String kodeProvider = item.optString("kode_provider", "");
+            String namaProvider = item.optString("nama_provider", "Provider");
+            String providerKey = kodeProvider.isEmpty() ? namaProvider : kodeProvider;
+            if (!providerKey.equalsIgnoreCase(selectedProviderCode)) continue;
+            count++;
+
             String nama = item.optString("nama_produk", "Produk");
             String kode = item.optString("kode_produk", "");
             String nominal = item.optString("nominal", "");
-            String provider = item.optString("nama_provider", "NASYAH CELL");
-            String status = item.optString("status_produk", "OPEN").toUpperCase(Locale.ROOT);
+            String status = item.optString("status_produk", "OPEN").trim().toUpperCase(Locale.ROOT);
+            boolean isOpen = status.equals("OPEN");
             double harga = item.optDouble("harga_jual", 0);
             boolean dipilih = item == selectedProduct;
 
@@ -771,7 +861,7 @@ public class MainActivity extends Activity {
             border.setStroke(dp(dipilih ? 2 : 1), dipilih ? RED : Color.rgb(160, 181, 184));
             card.setBackground(border);
 
-            TextView ribbon = text(provider.toUpperCase(Locale.ROOT), 11, Color.WHITE, true);
+            TextView ribbon = text(namaProvider.toUpperCase(Locale.ROOT), 11, Color.WHITE, true);
             ribbon.setGravity(Gravity.CENTER_VERTICAL);
             ribbon.setPadding(dp(9), dp(4), dp(9), dp(4));
             ribbon.setBackground(round(RED, 7));
@@ -787,7 +877,6 @@ public class MainActivity extends Activity {
             info.setOrientation(LinearLayout.VERTICAL);
             TextView codeText = text(kode.isEmpty() ? nama : kode, 18, DARK, true);
             info.addView(codeText);
-
             String deskripsi = nama;
             if (!nominal.isEmpty() && !nama.toLowerCase(Locale.ROOT).contains(nominal.toLowerCase(Locale.ROOT))) {
                 deskripsi += " " + nominal;
@@ -797,33 +886,40 @@ public class MainActivity extends Activity {
             descLp.topMargin = dp(4);
             info.addView(descText, descLp);
 
-            LinearLayout right = new LinearLayout(this);
-            right.setOrientation(LinearLayout.VERTICAL);
-            right.setGravity(Gravity.END | Gravity.CENTER_VERTICAL);
-            TextView statusTextCard = text(status.equals("OPEN") ? "Open" : status, 12,
-                    status.equals("OPEN") ? Color.rgb(46, 125, 50) : RED, false);
-            statusTextCard.setGravity(Gravity.RIGHT);
-            right.addView(statusTextCard);
+            // Status ditempatkan di tengah, dan nilainya mengikuti status_produk dari server.
+            TextView statusTextCard = text(isOpen ? "Open" : "Gangguan", 12,
+                    isOpen ? Color.rgb(46, 125, 50) : RED, false);
+            statusTextCard.setGravity(Gravity.CENTER);
+
             TextView price = text(formatRupiah(harga).replace("Rp ", ""), 19, DARK, true);
             price.setGravity(Gravity.RIGHT);
-            LinearLayout.LayoutParams priceLp = wrap();
-            priceLp.topMargin = dp(5);
-            right.addView(price, priceLp);
 
             main.addView(info, new LinearLayout.LayoutParams(0, -2, 1));
-            LinearLayout.LayoutParams rightLp = new LinearLayout.LayoutParams(-2, -2);
-            rightLp.leftMargin = dp(8);
-            main.addView(right, rightLp);
+            LinearLayout.LayoutParams statusLp = new LinearLayout.LayoutParams(dp(76), -2);
+            main.addView(statusTextCard, statusLp);
+            LinearLayout.LayoutParams priceLp = new LinearLayout.LayoutParams(-2, -2);
+            priceLp.leftMargin = dp(8);
+            main.addView(price, priceLp);
             card.addView(main);
 
             LinearLayout.LayoutParams cardLp = wrap();
             cardLp.topMargin = dp(8);
             productList.addView(card, cardLp);
             card.setOnClickListener(v -> {
+                if (!isOpen) {
+                    showMessage("Produk Gangguan", "Produk ini sedang gangguan dan belum bisa dipilih.");
+                    return;
+                }
                 selectedProduct = item;
                 renderProductCards();
                 if (statusText != null) statusText.setText("Dipilih: " + nama + " | " + formatRupiah(harga));
             });
+        }
+
+        if (count == 0) {
+            TextView empty = text("Belum ada produk untuk provider ini.", 13, Color.GRAY, false);
+            empty.setPadding(dp(12), dp(18), dp(12), dp(18));
+            productList.addView(empty);
         }
     }
 
