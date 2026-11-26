@@ -39,7 +39,7 @@ public class MainActivity extends Activity {
     // Sesuaikan URL ini jika alamat Cloudflare Tunnel sudah berubah.
     // WAJIB diisi dengan URL HTTPS terbaru yang tampil pada jendela cloudflared.
     // Contoh format: https://nama-acak.trycloudflare.com (tanpa /api/saldo)
-    private static final String SERVER_URL = "https://jokes-date-wage-gage.trycloudflare.com";
+    private static final String SERVER_URL = "https://limiting-park-cloth-met.trycloudflare.com";
 
     // Isi sama persis dengan nilai api_key di C:\NasyahCellServer\config.json.
     // Jangan kirim atau bagikan API key ini kepada siapa pun.
