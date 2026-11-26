@@ -651,7 +651,16 @@ public class MainActivity extends Activity {
         noteLp.topMargin = dp(15);
         page.addView(note, noteLp);
 
-        setContentView(page);
+        // Bungkus seluruh halaman produk agar bisa digulir ke atas dan ke bawah.
+        ScrollView pageScroll = new ScrollView(this);
+        pageScroll.setFillViewport(true);
+        pageScroll.setVerticalScrollBarEnabled(true);
+        pageScroll.setClipToPadding(false);
+        pageScroll.addView(page, new ScrollView.LayoutParams(
+                ScrollView.LayoutParams.MATCH_PARENT,
+                ScrollView.LayoutParams.WRAP_CONTENT
+        ));
+        setContentView(pageScroll);
 
         buy.setOnClickListener(v -> processTransaction());
     }
