@@ -14,8 +14,12 @@ import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.*;
+import android.text.Editable;
+import android.text.TextWatcher;
 
 import org.json.JSONObject;
+import org.json.JSONArray;
+import java.util.ArrayList;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.io.BufferedReader;
@@ -37,19 +41,21 @@ public class MainActivity extends Activity {
     private double saldoOtomax = 0;
 
     // Sesuaikan URL ini jika alamat Cloudflare Tunnel sudah berubah.
-    // WAJIB diisi dengan URL HTTPS terbaru yang tampil pada jendela cloudflared.
-    // Contoh format: https://nama-acak.trycloudflare.com (tanpa /api/saldo)
-    private static final String SERVER_URL = "https://limiting-park-cloth-met.trycloudflare.com";
+    private static final String SERVER_URL =
+            "https://limiting-park-cloth-met.trycloudflare.com";
 
-    // Isi sama persis dengan nilai api_key di C:\NasyahCellServer\config.json.
-    // Jangan kirim atau bagikan API key ini kepada siapa pun.
+    // Isi dengan API key yang sama persis seperti di config.json server.
     private static final String API_KEY = "NasyahCell-2026-KunciRahasia-73921";
 
     private EditText numberInput;
-    private Spinner productSpinner;
+    private LinearLayout productList;
+    private JSONObject selectedProduct;
+    private android.os.Handler searchHandler = new android.os.Handler();
+    private Runnable searchRunnable;
     private TextView statusText;
+    private final ArrayList<JSONObject> daftarProduk = new ArrayList<>();
 
-    private boolean saldoVisible = true;
+    private boolean saldoVisible = false;
     private String selectedCategory = null;
 
     private static final int REQUEST_CONTACT = 1001;
@@ -237,7 +243,7 @@ public class MainActivity extends Activity {
         TextView eye = text("◉", 20, Color.BLACK, true);
         saldoTop.addView(eye);
 
-        balanceText = text("Memuat saldo...", 17, Color.BLACK, true);
+        balanceText = text("Rp 0", 17, Color.BLACK, true);
         LinearLayout.LayoutParams balanceLp = wrap();
         balanceLp.leftMargin = dp(12);
         saldoTop.addView(balanceText, balanceLp);
@@ -258,7 +264,7 @@ public class MainActivity extends Activity {
         saldoBottom.setGravity(Gravity.CENTER);
         saldoBottom.setOrientation(LinearLayout.HORIZONTAL);
 
-        saldoAmountText = text("💰  Memuat saldo...", 17, Color.BLACK, false);
+        saldoAmountText = text("💰  Rp 0", 17, Color.BLACK, false);
         saldoAmountText.setGravity(Gravity.CENTER);
 
         TextView deposit = text("➕ Isi Saldo", 17, Color.BLACK, false);
@@ -408,18 +414,8 @@ public class MainActivity extends Activity {
                     }
                 });
             } catch (Exception e) {
-                final String pesan = e.getMessage() == null
-                        ? "Periksa URL Cloudflare, API key, dan koneksi server."
-                        : e.getMessage();
-                runOnUiThread(() -> {
-                    if (balanceText != null) {
-                        balanceText.setText("Saldo gagal dimuat");
-                    }
-                    if (saldoAmountText != null) {
-                        saldoAmountText.setText("Periksa koneksi server");
-                    }
-                    showMessage("Gagal mengambil saldo", pesan);
-                });
+                runOnUiThread(() -> showMessage("Gagal mengambil saldo",
+                        e.getMessage() == null ? "Periksa koneksi server dan API." : e.getMessage()));
             } finally {
                 if (conn != null) conn.disconnect();
             }
@@ -594,41 +590,56 @@ public class MainActivity extends Activity {
         contactLp.topMargin = dp(10);
         card.addView(contactRow, contactLp);
 
-        TextView productLabel = text(
-                "Pilih Produk", 15, Color.BLACK, true
-        );
+        TextView productLabel = text("Daftar Produk Otomatis", 15, Color.BLACK, true);
         LinearLayout.LayoutParams productLabelLp = wrap();
         productLabelLp.topMargin = dp(20);
         card.addView(productLabel, productLabelLp);
 
-        productSpinner = new Spinner(this);
+        TextView providerText = text("Masukkan nomor HP untuk mendeteksi provider", 13, BLUE, true);
+        LinearLayout.LayoutParams providerLp = wrap();
+        providerLp.topMargin = dp(8);
+        card.addView(providerText, providerLp);
 
-        ArrayAdapter<String> adapter = new ArrayAdapter<>(
-                this,
-                android.R.layout.simple_spinner_item,
-                getProducts(category)
-        );
+        productList = new LinearLayout(this);
+        productList.setOrientation(LinearLayout.VERTICAL);
+        LinearLayout.LayoutParams listLp = wrap();
+        listLp.topMargin = dp(10);
+        card.addView(productList, listLp);
 
-        adapter.setDropDownViewResource(
-                android.R.layout.simple_spinner_dropdown_item
-        );
+        statusText = text("Ketik nomor HP minimal 4 angka. Produk akan mengikuti prefix dan Catatan Provider OtomaX.",
+                13, Color.GRAY, false);
+        LinearLayout.LayoutParams statusLp = wrap();
+        statusLp.topMargin = dp(12);
+        card.addView(statusText, statusLp);
 
-        productSpinner.setAdapter(adapter);
-        card.addView(productSpinner);
+        numberInput.addTextChangedListener(new TextWatcher() {
+            @Override public void beforeTextChanged(CharSequence s, int st, int count, int after) {}
+            @Override public void onTextChanged(CharSequence s, int st, int before, int count) {
+                selectedProduct = null;
+                if (searchRunnable != null) searchHandler.removeCallbacks(searchRunnable);
+                final String nomor = s.toString().replaceAll("[^0-9]", "");
+                searchRunnable = () -> {
+                    if (nomor.length() >= 4) loadProducts(category, nomor);
+                    else {
+                        daftarProduk.clear();
+                        renderProductCards();
+                        if (statusText != null) statusText.setText("Masukkan minimal 4 angka nomor HP.");
+                    }
+                };
+                searchHandler.postDelayed(searchRunnable, 500);
+            }
+            @Override public void afterTextChanged(Editable s) {}
+        });
+
+        // Jika nomor sudah tersedia dari kontak, watcher akan memuat produk.
+        if (numberInput.getText().length() >= 4) {
+            loadProducts(category, numberInput.getText().toString());
+        }
 
         TextView buy = button("LANJUTKAN TRANSAKSI");
         LinearLayout.LayoutParams buyLp = wrap();
         buyLp.topMargin = dp(20);
         card.addView(buy, buyLp);
-
-        statusText = text(
-                "Status: Siap melakukan transaksi",
-                13, Color.GRAY, false
-        );
-
-        LinearLayout.LayoutParams statusLp = wrap();
-        statusLp.topMargin = dp(15);
-        card.addView(statusText, statusLp);
 
         page.addView(card);
 
@@ -645,110 +656,120 @@ public class MainActivity extends Activity {
         buy.setOnClickListener(v -> processTransaction());
     }
 
-    private String[] getProducts(String category) {
-        switch (category) {
-            case "Pulsa":
-                return new String[]{
-                        "Pilih Pulsa", "Pulsa 5.000", "Pulsa 10.000",
-                        "Pulsa 15.000", "Pulsa 20.000",
-                        "Pulsa 25.000", "Pulsa 50.000",
-                        "Pulsa 100.000"
-                };
+    private void loadProducts(String category, String nomor) {
+        if (statusText != null) statusText.setText("Mencari provider dan produk...");
+        new Thread(() -> {
+            HttpURLConnection conn = null;
+            try {
+                String query = "/api/produk?kategori=" +
+                        java.net.URLEncoder.encode(category, "UTF-8") +
+                        "&nomor=" + java.net.URLEncoder.encode(nomor, "UTF-8");
+                URL url = new URL(SERVER_URL + query);
+                conn = (HttpURLConnection) url.openConnection();
+                conn.setRequestMethod("GET");
+                conn.setConnectTimeout(15000);
+                conn.setReadTimeout(20000);
+                conn.setRequestProperty("X-API-Key", API_KEY);
+                int code = conn.getResponseCode();
+                java.io.InputStream stream = (code >= 200 && code < 300)
+                        ? conn.getInputStream() : conn.getErrorStream();
+                if (stream == null) throw new Exception("Server tidak memberi respons HTTP " + code);
+                BufferedReader reader = new BufferedReader(new InputStreamReader(stream, "UTF-8"));
+                StringBuilder response = new StringBuilder();
+                String line;
+                while ((line = reader.readLine()) != null) response.append(line);
+                reader.close();
+                if (code != 200) throw new Exception("HTTP " + code + ": " + response);
+                JSONObject json = new JSONObject(response.toString());
+                JSONArray items = json.optJSONArray("produk");
+                ArrayList<JSONObject> hasil = new ArrayList<>();
+                if (items != null) {
+                    for (int i = 0; i < items.length(); i++) {
+                        JSONObject item = items.optJSONObject(i);
+                        if (item == null) continue;
+                        if (item.optString("kategori", "").trim().equalsIgnoreCase(category)
+                                && item.optString("status_produk", "OPEN").equalsIgnoreCase("OPEN")) {
+                            hasil.add(item);
+                        }
+                    }
+                }
+                runOnUiThread(() -> {
+                    daftarProduk.clear();
+                    daftarProduk.addAll(hasil);
+                    selectedProduct = null;
+                    renderProductCards();
+                    if (statusText != null) {
+                        statusText.setText(hasil.isEmpty()
+                                ? "Produk tidak ditemukan. Periksa prefix dan Catatan Provider di OtomaX."
+                                : "Ditemukan " + hasil.size() + " produk untuk nomor " + nomor + ".");
+                    }
+                });
+            } catch (Exception e) {
+                runOnUiThread(() -> {
+                    daftarProduk.clear();
+                    renderProductCards();
+                    if (statusText != null) statusText.setText("Gagal memuat produk: " + e.getMessage());
+                });
+            } finally {
+                if (conn != null) conn.disconnect();
+            }
+        }).start();
+    }
 
-            case "Paket Data":
-                return new String[]{
-                        "Pilih Paket Data", "Paket Data 1 GB",
-                        "Paket Data 2 GB", "Paket Data 3 GB",
-                        "Paket Data 5 GB", "Paket Data 10 GB"
-                };
-
-            case "Token PLN":
-                return new String[]{
-                        "Pilih Token", "Token 20.000",
-                        "Token 50.000", "Token 100.000",
-                        "Token 200.000", "Token 500.000"
-                };
-
-            case "Telepon & SMS":
-                return new String[]{
-                        "Pilih Produk", "Paket Telepon",
-                        "Paket SMS"
-                };
-
-            case "Voucher Data":
-                return new String[]{
-                        "Pilih Voucher", "Voucher Data 1 GB",
-                        "Voucher Data 2 GB", "Voucher Data 5 GB"
-                };
-
-            case "Masa Aktif":
-                return new String[]{
-                        "Pilih Masa Aktif", "Masa Aktif 7 Hari",
-                        "Masa Aktif 30 Hari"
-                };
-
-            case "Paket Terbaik":
-                return new String[]{
-                        "Pilih Paket", "Paket Internet",
-                        "Paket Combo"
-                };
-
-            case "Game":
-                return new String[]{
-                        "Pilih Game", "Mobile Legends",
-                        "Free Fire", "PUBG Mobile",
-                        "Valorant"
-                };
-
-            case "Kirim Uang":
-                return new String[]{
-                        "Pilih Layanan", "Transfer Uang"
-                };
-
-            case "Kartu Perdana":
-                return new String[]{
-                        "Pilih Kartu", "Kartu Perdana"
-                };
-
-            case "Layanan Digital":
-                return new String[]{
-                        "Pilih Layanan", "Layanan Digital"
-                };
-
-            case "Tagihan PLN":
-                return new String[]{
-                        "Pilih Layanan", "PLN Pascabayar"
-                };
-
-            default:
-                return new String[]{"Pilih Produk"};
+    private void renderProductCards() {
+        if (productList == null) return;
+        productList.removeAllViews();
+        if (daftarProduk.isEmpty()) {
+            TextView empty = text("Produk akan muncul setelah nomor dikenali", 13, Color.GRAY, false);
+            empty.setPadding(dp(12), dp(14), dp(12), dp(14));
+            productList.addView(empty);
+            return;
+        }
+        for (JSONObject item : daftarProduk) {
+            String nama = item.optString("nama_produk", "Produk");
+            String nominal = item.optString("nominal", "");
+            double harga = item.optDouble("harga_jual", 0);
+            LinearLayout row = new LinearLayout(this);
+            row.setOrientation(LinearLayout.VERTICAL);
+            row.setPadding(dp(14), dp(12), dp(14), dp(12));
+            row.setBackground(round(item == selectedProduct ? Color.rgb(255, 235, 235) : Color.WHITE, 12));
+            TextView name = text(nama + (nominal.isEmpty() ? "" : " - " + nominal), 14, Color.BLACK, true);
+            TextView price = text(formatRupiah(harga), 14, RED, true);
+            row.addView(name);
+            LinearLayout.LayoutParams priceLp = wrap();
+            priceLp.topMargin = dp(5);
+            row.addView(price, priceLp);
+            LinearLayout.LayoutParams rowLp = wrap();
+            rowLp.topMargin = dp(7);
+            productList.addView(row, rowLp);
+            row.setOnClickListener(v -> {
+                selectedProduct = item;
+                renderProductCards();
+                if (statusText != null) statusText.setText("Dipilih: " + nama + " | " + formatRupiah(harga));
+            });
         }
     }
 
     private void processTransaction() {
         String number = numberInput.getText().toString().trim();
-        String product = productSpinner.getSelectedItem().toString();
-
-        if (number.isEmpty()) {
-            showMessage("Perhatian", "Masukkan nomor tujuan.");
+        if (number.isEmpty() || number.length() < 4) {
+            showMessage("Perhatian", "Masukkan nomor tujuan yang benar.");
             return;
         }
-
-        if (number.length() < 5 || number.length() > 20) {
-            showMessage("Perhatian", "Periksa kembali nomor tujuan.");
+        if (selectedProduct == null) {
+            showMessage("Perhatian", "Pilih salah satu produk terlebih dahulu.");
             return;
         }
-
-        if (product.startsWith("Pilih")) {
-            showMessage("Perhatian", "Silakan pilih produk.");
-            return;
-        }
-
-        statusText.setText(
-                "Data siap diproses\nNomor: " + number
-                        + "\nProduk: " + product
-                        + "\n\nBelum dikirim ke OtomaX."
-        );
+        String nama = selectedProduct.optString("nama_produk", "Produk");
+        String kode = selectedProduct.optString("kode_produk", "");
+        String harga = formatRupiah(selectedProduct.optDouble("harga_jual", 0));
+        new AlertDialog.Builder(this)
+                .setTitle("Konfirmasi Produk")
+                .setMessage("Nomor: " + number + "\nProduk: " + nama +
+                        "\nHarga: " + harga + "\nKode: " + kode +
+                        "\n\nIni hanya pratinjau. Transaksi belum dikirim ke OtomaX.")
+                .setPositiveButton("OK", null)
+                .show();
     }
 
     private void pickContact() {
