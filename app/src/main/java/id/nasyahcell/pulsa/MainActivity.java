@@ -48,13 +48,17 @@ public class MainActivity extends Activity {
     private static final String API_KEY = "NasyahCell-2026-KunciRahasia-73921";
 
     private EditText numberInput;
-    private LinearLayout productList;
-    private JSONObject selectedProduct;
-    private android.os.Handler searchHandler = new android.os.Handler();
-    private Runnable searchRunnable;
+    private Spinner productSpinner;
     private TextView statusText;
-    private TextView providerNameText;
+    private LinearLayout productContainer;
+    private JSONObject selectedProduct;
     private final ArrayList<JSONObject> daftarProduk = new ArrayList<>();
+    private final ArrayList<JSONObject> semuaProduk = new ArrayList<>();
+    private String kategoriAktif = "";
+    private String providerAktif = "";
+    private String nomorPrefixAktif = "";
+    private boolean sedangMemuatProduk = false;
+    private ArrayAdapter<String> productAdapter;
 
     private boolean saldoVisible = false;
     private String selectedCategory = null;
@@ -537,37 +541,42 @@ public class MainActivity extends Activity {
     }
 
     private void showProduct(String category) {
+        selectedProduct = null;
+        providerAktif = "";
+        nomorPrefixAktif = "";
+        kategoriAktif = category;
+        semuaProduk.clear();
+        daftarProduk.clear();
+        sedangMemuatProduk = false;
         LinearLayout page = new LinearLayout(this);
         page.setOrientation(LinearLayout.VERTICAL);
-        page.setPadding(dp(18), dp(20), dp(18), dp(20));
         page.setBackgroundColor(BG);
 
         LinearLayout top = new LinearLayout(this);
         top.setGravity(Gravity.CENTER_VERTICAL);
+        top.setPadding(dp(16), dp(8), dp(16), dp(8));
+        top.setBackgroundColor(Color.WHITE);
 
         TextView back = text("‹", 35, RED, true);
         top.addView(back, new LinearLayout.LayoutParams(dp(45), dp(50)));
-
-        TextView title = text(category, 22, Color.BLACK, true);
+        TextView title = text(category, 21, Color.BLACK, true);
         top.addView(title);
-
         page.addView(top);
-
         back.setOnClickListener(v -> showHome());
+
+        ScrollView scroll = new ScrollView(this);
+        LinearLayout body = new LinearLayout(this);
+        body.setOrientation(LinearLayout.VERTICAL);
+        body.setPadding(dp(16), dp(16), dp(16), dp(22));
 
         LinearLayout card = new LinearLayout(this);
         card.setOrientation(LinearLayout.VERTICAL);
         card.setPadding(dp(16), dp(18), dp(16), dp(18));
         card.setBackground(round(Color.WHITE, 15));
 
-        TextView numberLabel = text(
-                "Nomor Tujuan", 15, Color.BLACK, true
-        );
-        card.addView(numberLabel);
-
+        card.addView(text("Nomor Tujuan", 15, Color.BLACK, true));
         LinearLayout contactRow = new LinearLayout(this);
         contactRow.setGravity(Gravity.CENTER_VERTICAL);
-
         numberInput = new EditText(this);
         numberInput.setSingleLine(true);
         numberInput.setHint("Masukkan nomor tujuan");
@@ -575,108 +584,198 @@ public class MainActivity extends Activity {
         numberInput.setTextSize(15);
         numberInput.setPadding(dp(10), 0, dp(10), 0);
         numberInput.setBackground(round(BG, 10));
-
-        LinearLayout.LayoutParams numberLp =
-                new LinearLayout.LayoutParams(0, dp(50), 1);
+        LinearLayout.LayoutParams numberLp = new LinearLayout.LayoutParams(0, dp(50), 1);
         numberLp.rightMargin = dp(8);
         contactRow.addView(numberInput, numberLp);
-
         TextView contactButton = button("Kontak");
-        contactRow.addView(contactButton,
-                new LinearLayout.LayoutParams(dp(85), dp(50)));
-
+        contactRow.addView(contactButton, new LinearLayout.LayoutParams(dp(85), dp(50)));
         contactButton.setOnClickListener(v -> pickContact());
-
         LinearLayout.LayoutParams contactLp = wrap();
         contactLp.topMargin = dp(10);
         card.addView(contactRow, contactLp);
+        body.addView(card);
 
-        providerNameText = text("Provider: menunggu nomor tujuan", 16, BLUE, true);
-        LinearLayout.LayoutParams providerLp = wrap();
-        providerLp.topMargin = dp(20);
-        card.addView(providerNameText, providerLp);
-
-        TextView productLabel = text("Daftar Produk", 14, Color.BLACK, true);
+        TextView productLabel = text("Pilih Provider", 17, Color.BLACK, true);
         LinearLayout.LayoutParams productLabelLp = wrap();
-        productLabelLp.topMargin = dp(12);
-        card.addView(productLabel, productLabelLp);
+        productLabelLp.topMargin = dp(20);
+        body.addView(productLabel, productLabelLp);
 
-        productList = new LinearLayout(this);
-        productList.setOrientation(LinearLayout.VERTICAL);
-        LinearLayout.LayoutParams listLp = wrap();
-        listLp.topMargin = dp(10);
-        card.addView(productList, listLp);
-
-        statusText = text("Ketik nomor HP minimal 4 angka. Produk akan mengikuti prefix dan Catatan Provider OtomaX.",
-                13, Color.GRAY, false);
+        statusText = text("Masukkan nomor HP terlebih dahulu. Produk akan muncul sesuai prefix nomor.", 13, Color.GRAY, false);
         LinearLayout.LayoutParams statusLp = wrap();
-        statusLp.topMargin = dp(12);
-        card.addView(statusText, statusLp);
+        statusLp.topMargin = dp(7);
+        body.addView(statusText, statusLp);
 
-        numberInput.addTextChangedListener(new TextWatcher() {
-            @Override public void beforeTextChanged(CharSequence s, int st, int count, int after) {}
-            @Override public void onTextChanged(CharSequence s, int st, int before, int count) {
-                selectedProduct = null;
-                if (searchRunnable != null) searchHandler.removeCallbacks(searchRunnable);
-                final String nomor = s.toString().replaceAll("[^0-9]", "");
-                searchRunnable = () -> {
-                    if (nomor.length() >= 4) loadProducts(category, nomor);
-                    else {
-                        daftarProduk.clear();
-                        if (providerNameText != null) providerNameText.setText("Provider: menunggu nomor tujuan");
-                        renderProductCards();
-                        if (statusText != null) statusText.setText("Masukkan minimal 4 angka nomor HP.");
-                    }
-                };
-                searchHandler.postDelayed(searchRunnable, 500);
-            }
-            @Override public void afterTextChanged(Editable s) {}
-        });
+        productContainer = new LinearLayout(this);
+        productContainer.setOrientation(LinearLayout.VERTICAL);
+        LinearLayout.LayoutParams listLp = wrap();
+        listLp.topMargin = dp(12);
+        body.addView(productContainer, listLp);
 
-        // Jika nomor sudah tersedia dari kontak, watcher akan memuat produk.
-        if (numberInput.getText().length() >= 4) {
-            loadProducts(category, numberInput.getText().toString());
-        }
-
-        TextView buy = button("LANJUTKAN TRANSAKSI");
+        TextView buy = button("LANJUTKAN");
         LinearLayout.LayoutParams buyLp = wrap();
-        buyLp.topMargin = dp(20);
-        card.addView(buy, buyLp);
-
-        page.addView(card);
-
-        TextView note = text(
-                "Transaksi belum terhubung ke server OtomaX.",
-                12, Color.GRAY, false
-        );
-        LinearLayout.LayoutParams noteLp = wrap();
-        noteLp.topMargin = dp(15);
-        page.addView(note, noteLp);
-
-        // Bungkus seluruh halaman produk agar bisa digulir ke atas dan ke bawah.
-        ScrollView pageScroll = new ScrollView(this);
-        pageScroll.setFillViewport(true);
-        pageScroll.setVerticalScrollBarEnabled(true);
-        pageScroll.setClipToPadding(false);
-        pageScroll.addView(page, new ScrollView.LayoutParams(
-                ScrollView.LayoutParams.MATCH_PARENT,
-                ScrollView.LayoutParams.WRAP_CONTENT
-        ));
-        setContentView(pageScroll);
-
+        buyLp.topMargin = dp(18);
+        body.addView(buy, buyLp);
         buy.setOnClickListener(v -> processTransaction());
+
+        TextView note = text("Mode uji coba: pesanan belum dikirim ke OtomaX.", 12, Color.GRAY, false);
+        LinearLayout.LayoutParams noteLp = wrap();
+        noteLp.topMargin = dp(12);
+        body.addView(note, noteLp);
+
+        scroll.addView(body);
+        page.addView(scroll, new LinearLayout.LayoutParams(-1, 0, 1));
+        setContentView(page);
+
+        // Harga sengaja disembunyikan sampai nomor tujuan cukup untuk membaca prefix.
+        productContainer.setVisibility(View.GONE);
+        numberInput.addTextChangedListener(new TextWatcher() {
+            @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) { }
+            @Override public void onTextChanged(CharSequence s, int start, int before, int count) {
+                String nomor = normalisasiNomor(s.toString());
+                selectedProduct = null;
+                if (nomor.length() < 4) {
+                    daftarProduk.clear();
+                    productContainer.removeAllViews();
+                    productContainer.setVisibility(View.GONE);
+                    statusText.setText("Masukkan minimal 4 angka nomor HP untuk menampilkan produk sesuai operator.");
+                    return;
+                }
+                if (!semuaProduk.isEmpty()) {
+                    tampilkanProdukSesuaiPrefix(nomor);
+                } else if (!sedangMemuatProduk) {
+                    loadProducts(kategoriAktif);
+                }
+            }
+            @Override public void afterTextChanged(Editable s) { }
+        });
     }
 
-    private void loadProducts(String category, String nomor) {
-        if (statusText != null) statusText.setText("Mencari provider berdasarkan prefix nomor...");
-        if (providerNameText != null) providerNameText.setText("Provider: sedang dideteksi...");
+    private String normalisasiNomor(String nomor) {
+        if (nomor == null) return "";
+        String angka = nomor.replaceAll("[^0-9]", "");
+        if (angka.startsWith("62")) angka = "0" + angka.substring(2);
+        return angka;
+    }
+
+    private boolean prefixCocok(String nomor, JSONObject item) {
+        String daftarPrefix = item.optString("prefix_tujuan",
+                item.optString("prefix", item.optString("prefix_operator", "")));
+        if (daftarPrefix == null || daftarPrefix.trim().isEmpty() || "null".equalsIgnoreCase(daftarPrefix)) {
+            return false;
+        }
+        String[] prefixes = daftarPrefix.split("[,;|\\s]+");
+        for (String p : prefixes) {
+            String prefix = p.replaceAll("[^0-9]", "");
+            if (prefix.startsWith("62")) prefix = "0" + prefix.substring(2);
+            if (!prefix.isEmpty() && nomor.startsWith(prefix)) return true;
+        }
+        return false;
+    }
+
+    private void tampilkanProdukSesuaiPrefix(String nomor) {
+        if (productContainer == null || statusText == null) return;
+        nomorPrefixAktif = nomor;
+        selectedProduct = null;
+        daftarProduk.clear();
+        java.util.LinkedHashMap<String, JSONObject> providers = new java.util.LinkedHashMap<>();
+        for (JSONObject item : semuaProduk) {
+            String kategoriDb = item.optString("kategori", "").trim();
+            if (kategoriDb.equalsIgnoreCase(kategoriAktif) && prefixCocok(nomor, item)) {
+                String kodeProvider = item.optString("kode_provider", "").trim();
+                if (!kodeProvider.isEmpty() && !providers.containsKey(kodeProvider)) {
+                    providers.put(kodeProvider, item);
+                }
+            }
+        }
+        productContainer.removeAllViews();
+        if (providers.isEmpty()) {
+            productContainer.setVisibility(View.GONE);
+            statusText.setText("Provider untuk prefix nomor ini belum ditemukan.");
+            return;
+        }
+        productContainer.setVisibility(View.VISIBLE);
+        statusText.setText(providers.size() + " provider cocok. Pilih nama provider terlebih dahulu:");
+        for (java.util.Map.Entry<String, JSONObject> entry : providers.entrySet()) {
+            String kode = entry.getKey();
+            String nama = entry.getValue().optString("nama_provider", kode);
+            LinearLayout option = new LinearLayout(this);
+            option.setOrientation(LinearLayout.VERTICAL);
+            option.setPadding(dp(15), dp(15), dp(15), dp(15));
+            option.setBackground(round(Color.WHITE, 12));
+            option.addView(text(nama, 16, BLUE, true));
+            TextView sub = text("Kode provider: " + kode, 12, Color.GRAY, false);
+            LinearLayout.LayoutParams subLp = wrap();
+            subLp.topMargin = dp(4);
+            option.addView(sub, subLp);
+            LinearLayout.LayoutParams lp = wrap();
+            lp.bottomMargin = dp(9);
+            productContainer.addView(option, lp);
+            option.setOnClickListener(v -> tampilkanHargaProvider(kode, nama));
+        }
+    }
+
+    private void tampilkanHargaProvider(String kodeProvider, String namaProvider) {
+        providerAktif = kodeProvider;
+        selectedProduct = null;
+        daftarProduk.clear();
+        for (JSONObject item : semuaProduk) {
+            if (item.optString("kode_provider", "").equalsIgnoreCase(kodeProvider)
+                    && item.optString("kategori", "").equalsIgnoreCase(kategoriAktif)
+                    && prefixCocok(nomorPrefixAktif, item)) {
+                daftarProduk.add(item);
+            }
+        }
+        productContainer.removeAllViews();
+        TextView kembali = text("‹ Kembali ke daftar provider", 14, BLUE, true);
+        LinearLayout.LayoutParams backLp = wrap();
+        backLp.bottomMargin = dp(12);
+        productContainer.addView(kembali, backLp);
+        kembali.setOnClickListener(v -> tampilkanProdukSesuaiPrefix(nomorPrefixAktif));
+        statusText.setText("Provider: " + namaProvider + " | " + daftarProduk.size() + " produk tersedia");
+        if (daftarProduk.isEmpty()) {
+            productContainer.addView(text("Belum ada produk aktif untuk provider ini.", 14, Color.GRAY, false));
+            return;
+        }
+        for (JSONObject item : daftarProduk) {
+            final JSONObject produk = item;
+            String judul = produk.optString("nama_produk", "Produk")
+                    + (produk.optString("nominal", "").isEmpty() ? "" : " - " + produk.optString("nominal", ""));
+            String harga = formatRupiah(produk.optDouble("harga_jual", 0));
+            LinearLayout option = new LinearLayout(this);
+            option.setOrientation(LinearLayout.VERTICAL);
+            option.setPadding(dp(15), dp(13), dp(15), dp(13));
+            option.setBackground(round(Color.WHITE, 12));
+            option.addView(text(judul, 15, Color.BLACK, true));
+            TextView priceText = text(harga, 14, RED, true);
+            LinearLayout.LayoutParams priceLp = wrap();
+            priceLp.topMargin = dp(6);
+            option.addView(priceText, priceLp);
+            LinearLayout.LayoutParams optionLp = wrap();
+            optionLp.bottomMargin = dp(9);
+            productContainer.addView(option, optionLp);
+            option.setOnClickListener(v -> {
+                selectedProduct = produk;
+                for (int j = 1; j < productContainer.getChildCount(); j++) {
+                    productContainer.getChildAt(j).setBackground(round(Color.WHITE, 12));
+                }
+                option.setBackground(round(Color.rgb(255, 235, 235), 12));
+                statusText.setText("Provider: " + namaProvider + " | Dipilih: " + judul + " | " + harga);
+            });
+        }
+    }
+
+    private void loadProducts(String category) {
+        sedangMemuatProduk = true;
+        statusText.setText("Memuat daftar provider dari OtomaX...");
+        if (productContainer != null) {
+            productContainer.removeAllViews();
+            productContainer.setVisibility(View.GONE);
+        }
+
         new Thread(() -> {
             HttpURLConnection conn = null;
             try {
-                String query = "/api/produk?kategori=" +
-                        java.net.URLEncoder.encode(category, "UTF-8") +
-                        "&nomor=" + java.net.URLEncoder.encode(nomor, "UTF-8");
-                URL url = new URL(SERVER_URL + query);
+                URL url = new URL(SERVER_URL + "/api/produk");
                 conn = (HttpURLConnection) url.openConnection();
                 conn.setRequestMethod("GET");
                 conn.setConnectTimeout(15000);
@@ -685,48 +784,42 @@ public class MainActivity extends Activity {
                 int code = conn.getResponseCode();
                 java.io.InputStream stream = (code >= 200 && code < 300)
                         ? conn.getInputStream() : conn.getErrorStream();
-                if (stream == null) throw new Exception("Server tidak memberi respons HTTP " + code);
+                if (stream == null) throw new Exception("Server tidak mengirim respons (HTTP " + code + ")");
                 BufferedReader reader = new BufferedReader(new InputStreamReader(stream, "UTF-8"));
                 StringBuilder response = new StringBuilder();
                 String line;
                 while ((line = reader.readLine()) != null) response.append(line);
                 reader.close();
                 if (code != 200) throw new Exception("HTTP " + code + ": " + response);
+
                 JSONObject json = new JSONObject(response.toString());
                 JSONArray items = json.optJSONArray("produk");
+                if (items == null) throw new Exception("Data 'produk' tidak ditemukan.");
                 ArrayList<JSONObject> hasil = new ArrayList<>();
-                if (items != null) {
-                    for (int i = 0; i < items.length(); i++) {
-                        JSONObject item = items.optJSONObject(i);
-                        if (item == null) continue;
-                        if (item.optString("kategori", "").trim().equalsIgnoreCase(category)
-                                && item.optString("status_produk", "OPEN").equalsIgnoreCase("OPEN")) {
-                            hasil.add(item);
-                        }
-                    }
+                for (int i = 0; i < items.length(); i++) {
+                    JSONObject item = items.optJSONObject(i);
+                    if (item != null) hasil.add(item);
                 }
-                String namaProvider = hasil.isEmpty() ? "Provider tidak dikenali" :
-                        hasil.get(0).optString("nama_provider", "Provider tidak dikenali");
+
                 runOnUiThread(() -> {
-                    daftarProduk.clear();
-                    daftarProduk.addAll(hasil);
-                    selectedProduct = null;
-                    if (providerNameText != null) {
-                        providerNameText.setText("Provider: " + namaProvider);
-                    }
-                    renderProductCards();
-                    if (statusText != null) {
-                        statusText.setText(hasil.isEmpty()
-                                ? "Provider tidak ditemukan atau belum memiliki produk pada kategori ini. Periksa Filter Prefix Tujuan dan Catatan di OtomaX."
-                                : "Ditemukan " + hasil.size() + " produk untuk nomor " + nomor + ".");
+                    sedangMemuatProduk = false;
+                    semuaProduk.clear();
+                    semuaProduk.addAll(hasil);
+                    if (numberInput == null || statusText == null) return;
+                    String nomor = normalisasiNomor(numberInput.getText().toString());
+                    if (nomor.length() >= 4) {
+                        tampilkanProdukSesuaiPrefix(nomor);
+                    } else {
+                        productContainer.removeAllViews();
+                        productContainer.setVisibility(View.GONE);
+                        statusText.setText("Masukkan nomor HP untuk menampilkan produk yang sesuai.");
                     }
                 });
             } catch (Exception e) {
                 runOnUiThread(() -> {
-                    daftarProduk.clear();
-                    if (providerNameText != null) providerNameText.setText("Provider: gagal dideteksi");
-                    renderProductCards();
-                    if (statusText != null) statusText.setText("Gagal memuat produk: " + e.getMessage());
+                    sedangMemuatProduk = false;
+                    if (statusText != null) statusText.setText("Gagal memuat produk: " +
+                            (e.getMessage() == null ? "Periksa server/API." : e.getMessage()));
                 });
             } finally {
                 if (conn != null) conn.disconnect();
@@ -734,59 +827,36 @@ public class MainActivity extends Activity {
         }).start();
     }
 
-    private void renderProductCards() {
-        if (productList == null) return;
-        productList.removeAllViews();
-        if (daftarProduk.isEmpty()) {
-            TextView empty = text("Produk akan muncul setelah nomor dikenali", 13, Color.GRAY, false);
-            empty.setPadding(dp(12), dp(14), dp(12), dp(14));
-            productList.addView(empty);
+    private void processTransaction() {
+        String number = numberInput == null ? "" : numberInput.getText().toString().trim();
+        if (number.isEmpty()) {
+            showMessage("Perhatian", "Masukkan nomor tujuan.");
             return;
         }
-        for (JSONObject item : daftarProduk) {
-            String nama = item.optString("nama_produk", "Produk");
-            String nominal = item.optString("nominal", "");
-            double harga = item.optDouble("harga_jual", 0);
-            LinearLayout row = new LinearLayout(this);
-            row.setOrientation(LinearLayout.VERTICAL);
-            row.setPadding(dp(14), dp(12), dp(14), dp(12));
-            row.setBackground(round(item == selectedProduct ? Color.rgb(255, 235, 235) : Color.WHITE, 12));
-            TextView name = text(nama + (nominal.isEmpty() ? "" : " - " + nominal), 14, Color.BLACK, true);
-            TextView price = text(formatRupiah(harga), 14, RED, true);
-            row.addView(name);
-            LinearLayout.LayoutParams priceLp = wrap();
-            priceLp.topMargin = dp(5);
-            row.addView(price, priceLp);
-            LinearLayout.LayoutParams rowLp = wrap();
-            rowLp.topMargin = dp(7);
-            productList.addView(row, rowLp);
-            row.setOnClickListener(v -> {
-                selectedProduct = item;
-                renderProductCards();
-                if (statusText != null) statusText.setText("Dipilih: " + nama + " | " + formatRupiah(harga));
-            });
-        }
-    }
-
-    private void processTransaction() {
-        String number = numberInput.getText().toString().trim();
-        if (number.isEmpty() || number.length() < 4) {
-            showMessage("Perhatian", "Masukkan nomor tujuan yang benar.");
+        if (number.length() < 5 || number.length() > 20) {
+            showMessage("Perhatian", "Periksa kembali nomor tujuan.");
             return;
         }
         if (selectedProduct == null) {
             showMessage("Perhatian", "Pilih salah satu produk terlebih dahulu.");
             return;
         }
+
         String nama = selectedProduct.optString("nama_produk", "Produk");
+        String nominal = selectedProduct.optString("nominal", "");
         String kode = selectedProduct.optString("kode_produk", "");
         String harga = formatRupiah(selectedProduct.optDouble("harga_jual", 0));
+        String detail = "Nomor tujuan: " + number + "\nProduk: " + nama
+                + (nominal.isEmpty() || nominal.equals("null") ? "" : "\nNominal: " + nominal)
+                + "\nHarga: " + harga + "\nKode produk: " + kode
+                + "\n\nIni hanya konfirmasi simulasi. Belum ada transaksi yang dikirim ke OtomaX.";
+
         new AlertDialog.Builder(this)
-                .setTitle("Konfirmasi Produk")
-                .setMessage("Nomor: " + number + "\nProduk: " + nama +
-                        "\nHarga: " + harga + "\nKode: " + kode +
-                        "\n\nIni hanya pratinjau. Transaksi belum dikirim ke OtomaX.")
-                .setPositiveButton("OK", null)
+                .setTitle("Konfirmasi Pembelian")
+                .setMessage(detail)
+                .setNegativeButton("UBAH", null)
+                .setPositiveButton("KONFIRMASI", (dialog, which) ->
+                        showMessage("Mode Simulasi", "Data pesanan sudah diperiksa.\n\nBelum dikirim ke OtomaX dan saldo tidak dipotong."))
                 .show();
     }
 
