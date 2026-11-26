@@ -597,27 +597,30 @@ public class MainActivity extends Activity {
         contactLp.topMargin = dp(10);
         card.addView(contactRow, contactLp);
 
-        providerNameText = text("Provider: menunggu nomor tujuan", 16, BLUE, true);
+        providerNameText = text("Pilih Provider", 16, BLUE, true);
         LinearLayout.LayoutParams providerLp = wrap();
         providerLp.topMargin = dp(20);
         card.addView(providerNameText, providerLp);
+        providerNameText.setVisibility(View.GONE);
 
         TextView productLabel = text("Daftar Produk", 14, Color.BLACK, true);
         LinearLayout.LayoutParams productLabelLp = wrap();
         productLabelLp.topMargin = dp(12);
         card.addView(productLabel, productLabelLp);
+        productLabel.setVisibility(View.GONE);
 
         productList = new LinearLayout(this);
         productList.setOrientation(LinearLayout.VERTICAL);
         LinearLayout.LayoutParams listLp = wrap();
         listLp.topMargin = dp(10);
         card.addView(productList, listLp);
+        productList.setVisibility(View.GONE);
 
-        statusText = text("Ketik nomor HP minimal 4 angka. Produk akan mengikuti prefix dan Catatan Provider OtomaX.",
-                13, Color.GRAY, false);
+        statusText = text("", 13, Color.GRAY, false);
         LinearLayout.LayoutParams statusLp = wrap();
         statusLp.topMargin = dp(12);
         card.addView(statusText, statusLp);
+        statusText.setVisibility(View.GONE);
 
         numberInput.addTextChangedListener(new TextWatcher() {
             @Override public void beforeTextChanged(CharSequence s, int st, int count, int after) {}
@@ -627,14 +630,24 @@ public class MainActivity extends Activity {
                 if (searchRunnable != null) searchHandler.removeCallbacks(searchRunnable);
                 final String nomor = s.toString().replaceAll("[^0-9]", "");
                 searchRunnable = () -> {
-                    if (nomor.length() >= 4) loadProducts(category, nomor);
-                    else {
+                    boolean showResultsArea = nomor.length() >= 4;
+                    int visibility = showResultsArea ? View.VISIBLE : View.GONE;
+                    if (providerNameText != null) providerNameText.setVisibility(visibility);
+                    if (productLabel != null) productLabel.setVisibility(visibility);
+                    if (productList != null) productList.setVisibility(visibility);
+                    if (statusText != null) statusText.setVisibility(visibility);
+                    if (showResultsArea) {
+                        if (providerNameText != null) providerNameText.setText("Mencari provider...");
+                        if (statusText != null) statusText.setText("Memeriksa prefix nomor...");
+                        loadProducts(category, nomor);
+                    } else {
                         daftarProduk.clear();
                         daftarProvider.clear();
                         selectedProviderCode = null;
+                        selectedProduct = null;
                         if (providerNameText != null) providerNameText.setText("Pilih Provider");
-                        renderProductCards();
-                        if (statusText != null) statusText.setText("Masukkan minimal 4 angka nomor HP.");
+                        if (statusText != null) statusText.setText("");
+                        if (productList != null) productList.removeAllViews();
                     }
                 };
                 searchHandler.postDelayed(searchRunnable, 500);
