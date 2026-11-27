@@ -189,18 +189,20 @@ public class MainActivity extends Activity {
         LinearLayout page = new LinearLayout(this);
         page.setOrientation(LinearLayout.VERTICAL);
         page.setGravity(Gravity.CENTER);
-        page.setPadding(dp(24), dp(20), dp(24), dp(20));
+        page.setPadding(dp(20), dp(18), dp(20), dp(18));
         page.setBackgroundColor(Color.WHITE);
 
         ScrollView scroll = new ScrollView(this);
         scroll.setFillViewport(true);
         scroll.setClipToPadding(false);
+        scroll.setVerticalScrollBarEnabled(false);
 
         LinearLayout card = new LinearLayout(this);
         card.setOrientation(LinearLayout.VERTICAL);
         card.setGravity(Gravity.CENTER_HORIZONTAL);
-        card.setPadding(dp(18), dp(25), dp(18), dp(25));
-        card.setBackground(round(PANEL, 20));
+        card.setPadding(dp(18), dp(25), dp(18), dp(22));
+        card.setMinimumHeight(dp(610));
+        card.setBackground(round(PANEL, 22));
 
         TextView title = text("PENDAFTARAN", 27, DARK, true);
         title.setGravity(Gravity.CENTER);
@@ -208,48 +210,78 @@ public class MainActivity extends Activity {
         titleLp.bottomMargin = dp(30);
         card.addView(title, titleLp);
 
-        // Field ini tetap mengikuti API Flask yang sudah ada.
-        EditText kode = authInput("Kode Reseller OtomaX");
-        card.addView(kode, authFieldLp());
+        EditText nama = authInput("Nama");
+        nama.setInputType(android.text.InputType.TYPE_CLASS_TEXT | android.text.InputType.TYPE_TEXT_FLAG_CAP_WORDS);
+        card.addView(nama, authFieldLp());
 
-        EditText aktivasi = authInput("Kode Aktivasi dari Admin");
-        card.addView(aktivasi, authFieldLp());
+        EditText alamat = authInput("Alamat");
+        alamat.setSingleLine(true);
+        card.addView(alamat, authFieldLp());
 
-        EditText password = authInput("Buat Password (minimal 8 karakter)");
-        password.setInputType(129);
-        card.addView(password, authFieldLp());
+        EditText hp = authInput("No HP");
+        hp.setInputType(android.text.InputType.TYPE_CLASS_PHONE);
+        card.addView(hp, authFieldLp());
 
-        EditText konfirmasi = authInput("Ulangi Password");
-        konfirmasi.setInputType(129);
-        card.addView(konfirmasi, authFieldLp());
+        EditText referral = authInput("Kode Referral");
+        referral.setSingleLine(true);
+        card.addView(referral, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, dp(58)));
 
-        TextView daftar = button("KIRIM");
-        LinearLayout.LayoutParams daftarLp = wrap();
-        daftarLp.topMargin = dp(12);
-        card.addView(daftar, daftarLp);
-        daftar.setOnClickListener(v -> prosesAuth(
-                "/api/daftar",
-                kode.getText().toString().trim(),
-                password.getText().toString(),
-                konfirmasi.getText().toString(),
-                aktivasi.getText().toString().trim()
-        ));
+        TextView optional = text("Tidak wajib diisi.", 12, DARK, false);
+        LinearLayout.LayoutParams optionalLp = wrap();
+        optionalLp.leftMargin = dp(5);
+        optionalLp.topMargin = dp(4);
+        optionalLp.bottomMargin = dp(15);
+        card.addView(optional, optionalLp);
+
+        CheckBox setuju = new CheckBox(this);
+        setuju.setButtonTintList(android.content.res.ColorStateList.valueOf(DARK));
+        setuju.setText("Dengan mendaftar, Anda dianggap telah setuju dengan syarat dan ketentuan yang berlaku.");
+        setuju.setTextColor(DARK);
+        setuju.setTextSize(13);
+        setuju.setPadding(dp(4), dp(2), dp(2), dp(2));
+        card.addView(setuju, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+
+        TextView kirim = button("KIRIM");
+        LinearLayout.LayoutParams kirimLp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, dp(58));
+        kirimLp.topMargin = dp(20);
+        card.addView(kirim, kirimLp);
+        kirim.setOnClickListener(v -> {
+            String namaText = nama.getText().toString().trim();
+            String alamatText = alamat.getText().toString().trim();
+            String hpText = hp.getText().toString().trim();
+            String referralText = referral.getText().toString().trim();
+            if (namaText.isEmpty() || alamatText.isEmpty() || hpText.isEmpty()) {
+                showMessage("Pendaftaran", "Nama, alamat, dan nomor HP wajib diisi.");
+                return;
+            }
+            if (hpText.replaceAll("[^0-9]", "").length() < 9) {
+                showMessage("Pendaftaran", "Nomor HP belum valid.");
+                return;
+            }
+            if (!setuju.isChecked()) {
+                showMessage("Persetujuan", "Centang syarat dan ketentuan terlebih dahulu.");
+                return;
+            }
+            kirimPermohonan(namaText, alamatText, hpText, referralText);
+        });
 
         TextView kembali = text("←  KEMBALI", 15, RED, true);
         kembali.setGravity(Gravity.CENTER);
-        kembali.setPadding(dp(15), dp(15), dp(15), dp(15));
+        kembali.setPadding(dp(15), dp(14), dp(15), dp(14));
         kembali.setBackground(round(Color.WHITE, 8));
-        LinearLayout.LayoutParams kembaliLp =
-                new LinearLayout.LayoutParams(dp(150), -2);
+        LinearLayout.LayoutParams kembaliLp = new LinearLayout.LayoutParams(dp(150), dp(58));
         kembaliLp.gravity = Gravity.CENTER;
-        kembaliLp.topMargin = dp(20);
+        kembaliLp.topMargin = dp(18);
         card.addView(kembali, kembaliLp);
         kembali.setOnClickListener(v -> showLogin());
 
         TextView footer = text("NASYAH CELL", 16, DARK, true);
         footer.setGravity(Gravity.CENTER);
         LinearLayout.LayoutParams footerLp = wrap();
-        footerLp.topMargin = dp(25);
+        footerLp.topMargin = dp(24);
         card.addView(footer, footerLp);
 
         scroll.addView(card, new ScrollView.LayoutParams(
@@ -258,6 +290,57 @@ public class MainActivity extends Activity {
         ));
         page.addView(scroll, new LinearLayout.LayoutParams(-1, -1));
         setContentView(page);
+    }
+
+    private void kirimPermohonan(String nama, String alamat, String hp, String referral) {
+        new Thread(() -> {
+            HttpURLConnection conn = null;
+            try {
+                URL url = new URL(SERVER_URL + "/api/permohonan");
+                conn = (HttpURLConnection) url.openConnection();
+                conn.setRequestMethod("POST");
+                conn.setConnectTimeout(15000);
+                conn.setReadTimeout(15000);
+                conn.setDoOutput(true);
+                conn.setRequestProperty("Content-Type", "application/json; charset=UTF-8");
+                conn.setRequestProperty("X-API-Key", API_KEY);
+
+                JSONObject body = new JSONObject();
+                body.put("nama", nama);
+                body.put("alamat", alamat);
+                body.put("no_hp", hp);
+                body.put("kode_referral", referral);
+                byte[] bytes = body.toString().getBytes("UTF-8");
+                try (java.io.OutputStream output = conn.getOutputStream()) {
+                    output.write(bytes);
+                }
+
+                int code = conn.getResponseCode();
+                java.io.InputStream stream = (code >= 200 && code < 300)
+                        ? conn.getInputStream() : conn.getErrorStream();
+                if (stream == null) throw new Exception("Server tidak memberikan respons.");
+                BufferedReader reader = new BufferedReader(new InputStreamReader(stream, "UTF-8"));
+                StringBuilder result = new StringBuilder();
+                String line;
+                while ((line = reader.readLine()) != null) result.append(line);
+                reader.close();
+                JSONObject json = new JSONObject(result.toString());
+                if (code < 200 || code >= 300) {
+                    throw new Exception(json.optString("error", "Permohonan gagal dikirim."));
+                }
+                runOnUiThread(() -> new AlertDialog.Builder(MainActivity.this)
+                        .setTitle("Permohonan Terkirim")
+                        .setMessage("Permohonan pendaftaran berhasil dikirim dan menunggu pemeriksaan admin. Silakan tunggu konfirmasi dari admin Nasyah Cell.")
+                        .setPositiveButton("OK", (dialog, which) -> showLogin())
+                        .setCancelable(false)
+                        .show());
+            } catch (Exception e) {
+                String msg = e.getMessage() == null ? "Periksa koneksi server." : e.getMessage();
+                runOnUiThread(() -> showMessage("Pendaftaran Gagal", msg));
+            } finally {
+                if (conn != null) conn.disconnect();
+            }
+        }).start();
     }
 
     private EditText authInput(String hint) {
