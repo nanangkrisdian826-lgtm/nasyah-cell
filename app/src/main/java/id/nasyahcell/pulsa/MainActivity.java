@@ -1259,8 +1259,163 @@ public class MainActivity extends Activity {
     }
 
     private void showAccount() {
-        showMessage("Akun NASYAH CELL",
-                "Menu profil dan pengaturan akun akan dikembangkan.");
+        LinearLayout screen = new LinearLayout(this);
+        screen.setOrientation(LinearLayout.VERTICAL);
+        screen.setBackgroundColor(BG);
+
+        LinearLayout header = new LinearLayout(this);
+        header.setGravity(Gravity.CENTER_VERTICAL);
+        header.setPadding(dp(15), dp(12), dp(15), dp(12));
+        header.setBackgroundColor(RED);
+
+        TextView back = text("‹", 36, Color.WHITE, true);
+        back.setGravity(Gravity.CENTER);
+        header.addView(back, new LinearLayout.LayoutParams(dp(42), dp(44)));
+        back.setOnClickListener(v -> showHome());
+
+        TextView title = text("AKUN SAYA", 19, Color.WHITE, true);
+        LinearLayout.LayoutParams titleLp =
+                new LinearLayout.LayoutParams(0, -2, 1);
+        titleLp.leftMargin = dp(10);
+        header.addView(title, titleLp);
+
+        TextView refresh = text("⟳", 28, Color.WHITE, true);
+        refresh.setGravity(Gravity.CENTER);
+        header.addView(refresh, new LinearLayout.LayoutParams(dp(42), dp(44)));
+        refresh.setOnClickListener(v -> ambilSaldo());
+        screen.addView(header);
+
+        ScrollView scroll = new ScrollView(this);
+        LinearLayout page = new LinearLayout(this);
+        page.setOrientation(LinearLayout.VERTICAL);
+        page.setPadding(dp(14), dp(16), dp(14), dp(24));
+
+        LinearLayout profile = new LinearLayout(this);
+        profile.setGravity(Gravity.CENTER_VERTICAL);
+        profile.setPadding(dp(16), dp(18), dp(16), dp(18));
+        profile.setBackground(round(Color.WHITE, 12));
+
+        TextView avatar = text("👤", 34, BLUE, true);
+        avatar.setGravity(Gravity.CENTER);
+        avatar.setBackground(round(Color.rgb(225, 239, 250), 50));
+        profile.addView(avatar, new LinearLayout.LayoutParams(dp(62), dp(62)));
+
+        LinearLayout identity = new LinearLayout(this);
+        identity.setOrientation(LinearLayout.VERTICAL);
+        identity.setPadding(dp(13), 0, 0, 0);
+        identity.addView(text("Reseller OtomaX", 17, DARK, true));
+        identity.addView(text("Profil akan dimuat dari akun OtomaX", 12, Color.GRAY, false));
+        profile.addView(identity, new LinearLayout.LayoutParams(0, -2, 1));
+        page.addView(profile, wrap());
+
+        LinearLayout summary = new LinearLayout(this);
+        summary.setOrientation(LinearLayout.HORIZONTAL);
+        LinearLayout.LayoutParams summaryLp = wrap();
+        summaryLp.topMargin = dp(12);
+        page.addView(summary, summaryLp);
+
+        LinearLayout saldoCard = new LinearLayout(this);
+        saldoCard.setOrientation(LinearLayout.VERTICAL);
+        saldoCard.setPadding(dp(14), dp(14), dp(10), dp(14));
+        saldoCard.setBackground(round(Color.WHITE, 10));
+        saldoCard.addView(text("SALDO RESELLER", 11, Color.GRAY, true));
+        saldoCard.addView(text("Lihat di Beranda", 16, DARK, true));
+        summary.addView(saldoCard, new LinearLayout.LayoutParams(0, dp(82), 1));
+
+        LinearLayout poinCard = new LinearLayout(this);
+        poinCard.setOrientation(LinearLayout.VERTICAL);
+        poinCard.setPadding(dp(14), dp(14), dp(10), dp(14));
+        poinCard.setBackground(round(Color.WHITE, 10));
+        LinearLayout.LayoutParams poinLp = new LinearLayout.LayoutParams(0, dp(82), 1);
+        poinLp.leftMargin = dp(10);
+        summary.addView(poinCard, poinLp);
+        poinCard.addView(text("POIN SAYA", 11, Color.GRAY, true));
+        poinCard.addView(text("Belum tersedia", 16, DARK, true));
+
+        TextView info = text(
+                "Poin dan riwayat poin akan mengambil data dari OtomaX. "
+                + "Sumber data poin belum teridentifikasi, jadi jumlahnya "
+                + "belum ditampilkan agar tidak menampilkan angka yang keliru.",
+                12, Color.DKGRAY, false);
+        info.setPadding(dp(4), dp(12), dp(4), dp(14));
+        page.addView(info, wrap());
+
+        TextView section = text("MENU AKUN", 12, Color.GRAY, true);
+        LinearLayout.LayoutParams sectionLp = wrap();
+        sectionLp.bottomMargin = dp(8);
+        page.addView(section, sectionLp);
+
+        addAccountRow(page, "👤", "Profil Reseller",
+                "Informasi akun yang terdaftar di OtomaX",
+                () -> showMessage("Profil Reseller",
+                        "Profil akan ditampilkan setelah endpoint data akun tersedia."));
+        addAccountRow(page, "🪙", "Poin Saya",
+                "Lihat jumlah poin yang dimiliki",
+                () -> showMessage("Poin Saya",
+                        "Jumlah poin belum dapat dibaca karena sumber data poin OtomaX belum diketahui."));
+        addAccountRow(page, "📜", "Riwayat Poin",
+                "Catatan poin masuk dan keluar",
+                () -> showMessage("Riwayat Poin",
+                        "Riwayat poin akan dihubungkan setelah tabel atau modul poin OtomaX teridentifikasi."));
+        addAccountRow(page, "🔒", "Ubah Password",
+                "Pengaturan password akun reseller",
+                () -> showMessage("Ubah Password",
+                        "Fitur ini perlu memakai mekanisme resmi OtomaX, bukan mengubah password langsung dari aplikasi."));
+        addAccountRow(page, "🧾", "Riwayat Transaksi",
+                "Lihat transaksi pembelian",
+                () -> showHistory());
+        addAccountRow(page, "💳", "Riwayat Deposit",
+                "Lihat catatan deposit dan tiket",
+                () -> showMessage("Riwayat Deposit",
+                        "Riwayat deposit belum terhubung ke endpoint tiket OtomaX."));
+        addAccountRow(page, "☎️", "Hubungi Admin",
+                "Bantuan Nasyah Cell",
+                () -> showMessage("Hubungi Admin",
+                        "Kontak admin belum dikonfigurasi."));
+
+        TextView logout = text("KELUAR AKUN", 14, RED, true);
+        logout.setGravity(Gravity.CENTER);
+        logout.setPadding(dp(12), dp(16), dp(12), dp(16));
+        logout.setBackground(round(Color.WHITE, 10));
+        LinearLayout.LayoutParams logoutLp = wrap();
+        logoutLp.topMargin = dp(10);
+        page.addView(logout, logoutLp);
+        logout.setOnClickListener(v -> new AlertDialog.Builder(this)
+                .setTitle("Keluar akun?")
+                .setMessage("Apakah ingin keluar dari Nasyah Cell?")
+                .setNegativeButton("BATAL", null)
+                .setPositiveButton("KELUAR", (dialog, which) -> showHome())
+                .show());
+
+        scroll.addView(page);
+        screen.addView(scroll, new LinearLayout.LayoutParams(-1, 0, 1));
+        setContentView(screen);
+    }
+
+    private void addAccountRow(LinearLayout parent, String iconText,
+                               String labelText, String subtitle,
+                               Runnable action) {
+        LinearLayout row = new LinearLayout(this);
+        row.setGravity(Gravity.CENTER_VERTICAL);
+        row.setPadding(dp(12), dp(11), dp(12), dp(11));
+        row.setBackground(round(Color.WHITE, 9));
+
+        TextView icon = text(iconText, 22, BLUE, true);
+        icon.setGravity(Gravity.CENTER);
+        row.addView(icon, new LinearLayout.LayoutParams(dp(42), dp(42)));
+
+        LinearLayout labels = new LinearLayout(this);
+        labels.setOrientation(LinearLayout.VERTICAL);
+        labels.setPadding(dp(10), 0, 0, 0);
+        labels.addView(text(labelText, 14, DARK, true));
+        labels.addView(text(subtitle, 11, Color.GRAY, false));
+        row.addView(labels, new LinearLayout.LayoutParams(0, -2, 1));
+        row.addView(text("›", 25, Color.GRAY, false));
+
+        LinearLayout.LayoutParams rowLp = wrap();
+        rowLp.bottomMargin = dp(7);
+        parent.addView(row, rowLp);
+        row.setOnClickListener(v -> action.run());
     }
 
     private void showMoreMenu(View anchor) {
