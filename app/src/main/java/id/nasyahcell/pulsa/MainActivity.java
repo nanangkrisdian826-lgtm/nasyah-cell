@@ -4,6 +4,7 @@ package id.nasyahcell.pulsa;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.database.Cursor;
 import android.graphics.Color;
 import android.graphics.Typeface;
@@ -47,6 +48,11 @@ public class MainActivity extends Activity {
     // Isi dengan API key yang sama persis seperti di config.json server.
     private static final String API_KEY = "NasyahCell-2026-KunciRahasia-73921";
 
+    private static final String PREFS = "nasyah_auth";
+    private static final String PREF_TOKEN = "token";
+    private static final String PREF_KODE = "kode_reseller";
+    private String tokenLogin = "";
+
     private EditText numberInput;
     private LinearLayout productList;
     private JSONObject selectedProduct;
@@ -87,7 +93,128 @@ public class MainActivity extends Activity {
                 View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR
         );
 
-        showHome();
+        SharedPreferences prefs = getSharedPreferences(PREFS, MODE_PRIVATE);
+        tokenLogin = prefs.getString(PREF_TOKEN, "");
+        if (tokenLogin.isEmpty()) {
+            showLogin();
+        } else {
+            cekSesiLaluMasuk();
+        }
+    }
+
+    private void showLogin() {
+        accountScreen = false;
+        depositScreen = false;
+        selectedCategory = null;
+        LinearLayout page = new LinearLayout(this);
+        page.setOrientation(LinearLayout.VERTICAL);
+        page.setGravity(Gravity.CENTER_HORIZONTAL);
+        page.setPadding(dp(25), dp(35), dp(25), dp(25));
+        page.setBackgroundColor(BG);
+
+        TextView brand = text("NASYAH CELL", 27, RED, true);
+        brand.setGravity(Gravity.CENTER);
+        LinearLayout.LayoutParams brandLp = wrap(); brandLp.topMargin = dp(55); brandLp.bottomMargin = dp(8);
+        page.addView(brand, brandLp);
+        TextView subtitle = text("LOGIN RESELLER", 17, DARK, true);
+        subtitle.setGravity(Gravity.CENTER);
+        LinearLayout.LayoutParams subLp = wrap(); subLp.bottomMargin = dp(30); page.addView(subtitle, subLp);
+
+        EditText kode = authInput("Kode Reseller");
+        kode.setSingleLine(true);
+        page.addView(kode, authFieldLp());
+        EditText password = authInput("Password Nasyah Cell");
+        password.setSingleLine(true);
+        password.setInputType(129);
+        page.addView(password, authFieldLp());
+
+        TextView masuk = button("MASUK");
+        LinearLayout.LayoutParams masukLp = wrap(); masukLp.topMargin = dp(12); page.addView(masuk, masukLp);
+        masuk.setOnClickListener(v -> prosesAuth("/api/login", kode.getText().toString().trim(), password.getText().toString(), "", ""));
+
+        TextView daftar = text("Belum punya akun? DAFTAR", 14, BLUE, true);
+        daftar.setGravity(Gravity.CENTER);
+        LinearLayout.LayoutParams daftarLp = wrap(); daftarLp.topMargin = dp(24); page.addView(daftar, daftarLp);
+        daftar.setOnClickListener(v -> showRegister());
+        setContentView(page);
+    }
+
+    private void showRegister() {
+        LinearLayout page = new LinearLayout(this);
+        page.setOrientation(LinearLayout.VERTICAL);
+        page.setPadding(dp(24), dp(28), dp(24), dp(24));
+        page.setBackgroundColor(BG);
+        TextView title = text("DAFTAR RESELLER", 22, RED, true);
+        title.setGravity(Gravity.CENTER);
+        LinearLayout.LayoutParams titleLp = wrap(); titleLp.bottomMargin = dp(22); page.addView(title, titleLp);
+        EditText kode = authInput("Kode Reseller OtomaX"); page.addView(kode, authFieldLp());
+        EditText aktivasi = authInput("Kode Aktivasi dari Admin"); page.addView(aktivasi, authFieldLp());
+        EditText password = authInput("Buat Password (minimal 8 karakter)"); password.setInputType(129); page.addView(password, authFieldLp());
+        EditText konfirmasi = authInput("Ulangi Password"); konfirmasi.setInputType(129); page.addView(konfirmasi, authFieldLp());
+        TextView daftar = button("DAFTAR SEKARANG"); LinearLayout.LayoutParams dlp = wrap(); dlp.topMargin = dp(8); page.addView(daftar, dlp);
+        daftar.setOnClickListener(v -> prosesAuth("/api/daftar", kode.getText().toString().trim(), password.getText().toString(), konfirmasi.getText().toString(), aktivasi.getText().toString().trim()));
+        TextView kembali = text("Kembali ke Login", 14, BLUE, true); kembali.setGravity(Gravity.CENTER);
+        LinearLayout.LayoutParams klp = wrap(); klp.topMargin = dp(20); page.addView(kembali, klp);
+        kembali.setOnClickListener(v -> showLogin());
+        setContentView(page);
+    }
+
+    private EditText authInput(String hint) {
+        EditText e = new EditText(this); e.setHint(hint); e.setTextSize(15); e.setSingleLine(true);
+        e.setPadding(dp(14), dp(12), dp(14), dp(12)); e.setBackground(round(Color.WHITE, 10));
+        return e;
+    }
+
+    private LinearLayout.LayoutParams authFieldLp() {
+        LinearLayout.LayoutParams lp = wrap(); lp.bottomMargin = dp(12); return lp;
+    }
+
+    private void prosesAuth(String endpoint, String kode, String password, String konfirmasi, String aktivasi) {
+        if (kode.isEmpty() || password.isEmpty()) { showMessage("Login", "Kode reseller dan password wajib diisi."); return; }
+        if (endpoint.equals("/api/daftar") && (aktivasi.isEmpty() || konfirmasi.isEmpty())) { showMessage("Pendaftaran", "Kode aktivasi dan konfirmasi password wajib diisi."); return; }
+        new Thread(() -> {
+            HttpURLConnection conn = null;
+            try {
+                URL url = new URL(SERVER_URL + endpoint);
+                conn = (HttpURLConnection) url.openConnection();
+                conn.setRequestMethod("POST"); conn.setConnectTimeout(15000); conn.setReadTimeout(15000);
+                conn.setDoOutput(true); conn.setRequestProperty("Content-Type", "application/json; charset=UTF-8");
+                conn.setRequestProperty("X-API-Key", API_KEY);
+                JSONObject body = new JSONObject(); body.put("kode_reseller", kode); body.put("password", password);
+                if (endpoint.equals("/api/daftar")) { body.put("konfirmasi_password", konfirmasi); body.put("kode_aktivasi", aktivasi); }
+                byte[] bytes = body.toString().getBytes("UTF-8"); conn.getOutputStream().write(bytes);
+                int code = conn.getResponseCode();
+                java.io.InputStream stream = code >= 200 && code < 300 ? conn.getInputStream() : conn.getErrorStream();
+                BufferedReader reader = new BufferedReader(new InputStreamReader(stream, "UTF-8"));
+                StringBuilder result = new StringBuilder(); String line; while ((line = reader.readLine()) != null) result.append(line); reader.close();
+                JSONObject json = new JSONObject(result.toString());
+                if (code < 200 || code >= 300) throw new Exception(json.optString("error", json.optString("pesan", "Permintaan gagal")));
+                String token = json.optString("token", "");
+                if (token.isEmpty()) throw new Exception("Server tidak mengirim token login.");
+                getSharedPreferences(PREFS, MODE_PRIVATE).edit().putString(PREF_TOKEN, token).putString(PREF_KODE, kode).apply();
+                tokenLogin = token;
+                runOnUiThread(() -> { showMessage("Berhasil", endpoint.equals("/api/login") ? "Login berhasil." : "Pendaftaran berhasil. Anda sudah masuk."); showHome(); });
+            } catch (Exception e) {
+                String msg = e.getMessage() == null ? "Periksa koneksi server." : e.getMessage();
+                runOnUiThread(() -> showMessage("Gagal", msg));
+            } finally { if (conn != null) conn.disconnect(); }
+        }).start();
+    }
+
+    private void cekSesiLaluMasuk() {
+        new Thread(() -> {
+            HttpURLConnection conn = null;
+            try {
+                URL url = new URL(SERVER_URL + "/api/akun"); conn = (HttpURLConnection) url.openConnection();
+                conn.setRequestMethod("GET"); conn.setConnectTimeout(12000); conn.setReadTimeout(12000);
+                conn.setRequestProperty("X-API-Key", API_KEY); conn.setRequestProperty("Authorization", "Bearer " + tokenLogin);
+                if (conn.getResponseCode() != 200) throw new Exception("Sesi login tidak berlaku.");
+                runOnUiThread(() -> showHome());
+            } catch (Exception e) {
+                getSharedPreferences(PREFS, MODE_PRIVATE).edit().clear().apply(); tokenLogin = "";
+                runOnUiThread(() -> showLogin());
+            } finally { if (conn != null) conn.disconnect(); }
+        }).start();
     }
 
     private void showHome() {
@@ -375,12 +502,13 @@ public class MainActivity extends Activity {
         new Thread(() -> {
             HttpURLConnection conn = null;
             try {
-                URL url = new URL(SERVER_URL + "/api/saldo");
+                URL url = new URL(SERVER_URL + "/api/akun");
                 conn = (HttpURLConnection) url.openConnection();
                 conn.setRequestMethod("GET");
                 conn.setConnectTimeout(15000);
                 conn.setReadTimeout(15000);
                 conn.setRequestProperty("X-API-Key", API_KEY);
+                conn.setRequestProperty("Authorization", "Bearer " + tokenLogin);
 
                 int code = conn.getResponseCode();
                 java.io.InputStream stream = (code >= 200 && code < 300)
@@ -1352,7 +1480,11 @@ public class MainActivity extends Activity {
                 .setTitle("Keluar akun?")
                 .setMessage("Apakah ingin keluar dari Nasyah Cell?")
                 .setNegativeButton("BATAL", null)
-                .setPositiveButton("KELUAR", (dialog, which) -> showHome())
+                .setPositiveButton("KELUAR", (dialog, which) -> {
+                    getSharedPreferences(PREFS, MODE_PRIVATE).edit().clear().apply();
+                    tokenLogin = "";
+                    showLogin();
+                })
                 .show());
 
         scroll.addView(page);
