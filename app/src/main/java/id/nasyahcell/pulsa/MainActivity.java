@@ -601,17 +601,11 @@ public class MainActivity extends Activity {
         contactLp.topMargin = dp(10);
         card.addView(contactRow, contactLp);
 
-        providerNameText = text("Pilih Provider", 16, BLUE, true);
+        providerNameText = text("", 16, BLUE, true);
         LinearLayout.LayoutParams providerLp = wrap();
         providerLp.topMargin = dp(20);
         card.addView(providerNameText, providerLp);
         providerNameText.setVisibility(View.GONE);
-
-        TextView productLabel = text("Daftar Produk", 14, Color.BLACK, true);
-        LinearLayout.LayoutParams productLabelLp = wrap();
-        productLabelLp.topMargin = dp(12);
-        card.addView(productLabel, productLabelLp);
-        productLabel.setVisibility(View.GONE);
 
         productList = new LinearLayout(this);
         productList.setOrientation(LinearLayout.VERTICAL);
@@ -619,12 +613,6 @@ public class MainActivity extends Activity {
         listLp.topMargin = dp(10);
         card.addView(productList, listLp);
         productList.setVisibility(View.GONE);
-
-        statusText = text("", 13, Color.GRAY, false);
-        LinearLayout.LayoutParams statusLp = wrap();
-        statusLp.topMargin = dp(12);
-        card.addView(statusText, statusLp);
-        statusText.setVisibility(View.GONE);
 
         numberInput.addTextChangedListener(new TextWatcher() {
             @Override public void beforeTextChanged(CharSequence s, int st, int count, int after) {}
@@ -642,14 +630,13 @@ public class MainActivity extends Activity {
                     if (statusText != null) statusText.setVisibility(visibility);
                     if (showResultsArea) {
                         if (providerNameText != null) providerNameText.setText("Mencari provider...");
-                        if (statusText != null) statusText.setText("Memeriksa prefix nomor...");
                         loadProducts(category, nomor);
                     } else {
                         daftarProduk.clear();
                         daftarProvider.clear();
                         selectedProviderCode = null;
                         selectedProduct = null;
-                        if (providerNameText != null) providerNameText.setText("Pilih Provider");
+                        if (providerNameText != null) providerNameText.setText("");
                         if (statusText != null) statusText.setText("");
                         if (productList != null) productList.removeAllViews();
                     }
@@ -665,14 +652,6 @@ public class MainActivity extends Activity {
         }
 
         page.addView(card);
-
-        TextView note = text(
-                "Pilih produk yang diinginkan, lalu tekan LANJUTKAN.",
-                12, Color.GRAY, false
-        );
-        LinearLayout.LayoutParams noteLp = wrap();
-        noteLp.topMargin = dp(12);
-        page.addView(note, noteLp);
 
         // Area daftar dapat digulir, tombol tetap menempel di bawah seperti AnggiCharger.
         ScrollView pageScroll = new ScrollView(this);
@@ -705,8 +684,7 @@ public class MainActivity extends Activity {
     }
 
     private void loadProducts(String category, String nomor) {
-        if (statusText != null) statusText.setText("Mencari provider berdasarkan prefix nomor...");
-        if (providerNameText != null) providerNameText.setText("Pilih Provider");
+        if (providerNameText != null) providerNameText.setText("");
         new Thread(() -> {
             HttpURLConnection conn = null;
             try {
@@ -776,23 +754,17 @@ public class MainActivity extends Activity {
                     selectedProduct = null;
                     selectedProviderCode = null;
                     if (providerNameText != null) {
-                        providerNameText.setText("Pilih Provider");
+                        providerNameText.setText("");
                     }
                     renderProductCards();
-                    if (statusText != null) {
-                        statusText.setText(providers.isEmpty()
-                                ? "Tidak ada provider yang cocok dengan prefix nomor " + nomor
-                                : providers.size() + " provider cocok. Pilih nama provider terlebih dahulu.");
-                    }
                 });
             } catch (Exception e) {
                 runOnUiThread(() -> {
                     daftarProduk.clear();
                     daftarProvider.clear();
                     selectedProviderCode = null;
-                    if (providerNameText != null) providerNameText.setText("Pilih Provider");
+                    if (providerNameText != null) providerNameText.setText("");
                     renderProductCards();
-                    if (statusText != null) statusText.setText("Gagal memuat data: " + e.getMessage());
                 });
             } finally {
                 if (conn != null) conn.disconnect();
@@ -822,12 +794,6 @@ public class MainActivity extends Activity {
 
                 TextView name = text(namaProvider, 17, BLUE, true);
                 providerCard.addView(name);
-                TextView code = text("Kode provider: " +
-                        (kodeProvider.isEmpty() ? "-" : kodeProvider), 12, Color.GRAY, false);
-                LinearLayout.LayoutParams codeLp = wrap();
-                codeLp.topMargin = dp(5);
-                providerCard.addView(code, codeLp);
-
                 LinearLayout.LayoutParams lp = wrap();
                 lp.topMargin = dp(8);
                 productList.addView(providerCard, lp);
@@ -838,7 +804,6 @@ public class MainActivity extends Activity {
                     }
                     selectedProduct = null;
                     renderProductCards();
-                    if (statusText != null) statusText.setText("Pilih produk yang diinginkan.");
                 });
             }
             return;
@@ -851,7 +816,7 @@ public class MainActivity extends Activity {
         backProviders.setOnClickListener(v -> {
             selectedProviderCode = null;
             selectedProduct = null;
-            if (providerNameText != null) providerNameText.setText("Pilih Provider");
+            if (providerNameText != null) providerNameText.setText("");
             renderProductCards();
         });
 
