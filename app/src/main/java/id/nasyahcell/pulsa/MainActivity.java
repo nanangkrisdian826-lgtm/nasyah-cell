@@ -59,6 +59,7 @@ public class MainActivity extends Activity {
     private String selectedProviderCode = null;
 
     private boolean saldoVisible = false;
+    private boolean depositScreen = false;
     private String selectedCategory = null;
 
     private static final int REQUEST_CONTACT = 1001;
@@ -90,6 +91,7 @@ public class MainActivity extends Activity {
 
     private void showHome() {
         selectedCategory = null;
+        depositScreen = false;
 
         root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
@@ -1006,16 +1008,114 @@ public class MainActivity extends Activity {
         }
     }
 
+    // MENU DEPOSIT NASYAH CELL - tampilan dan input lokal.
+    // Pembuatan tiket, verifikasi transfer, dan QRIS perlu endpoint backend resmi.
     private void showDeposit() {
-        new AlertDialog.Builder(this)
-                .setTitle("ISI SALDO NASYAH CELL")
-                .setMessage(
-                        "Menu deposit siap dikembangkan.\n\n"
-                                + "Pembayaran bank dan QRIS akan "
-                                + "dihubungkan setelah sistem deposit tersedia."
-                )
-                .setPositiveButton("OK", null)
-                .show();
+        depositScreen = true;
+        LinearLayout page = new LinearLayout(this);
+        page.setOrientation(LinearLayout.VERTICAL);
+        page.setPadding(dp(18), dp(18), dp(18), dp(24));
+        page.setBackgroundColor(BG);
+
+        TextView title = text("Isi Saldo Nasyah Cell", 23, RED, true);
+        title.setGravity(Gravity.CENTER);
+        page.addView(title, wrap());
+        TextView subtitle = text("Pilih metode deposit yang tersedia", 14, DARK, false);
+        subtitle.setGravity(Gravity.CENTER);
+        LinearLayout.LayoutParams subLp = wrap(); subLp.topMargin = dp(6); subLp.bottomMargin = dp(18);
+        page.addView(subtitle, subLp);
+
+        addDepositCard(page, "▣", "Tiket Deposit OtomaX", "Masukkan nominal atau kode tiket deposit yang sudah dibuat", v -> showTicketDeposit());
+        addDepositCard(page, "🏦", "Transfer Bank / SeaBank", "Transfer ke rekening Nasyah Cell dan kirim bukti pembayaran", v -> showBankDeposit());
+        addDepositCard(page, "▦", "QRIS", "Pembayaran melalui mobile banking atau e-wallet", v -> showQrisDeposit());
+        TextView info = text("Saldo hanya bertambah setelah pembayaran diverifikasi oleh sistem.", 13, Color.DKGRAY, false);
+        info.setPadding(dp(12), dp(14), dp(12), dp(14));
+        info.setBackground(round(Color.rgb(255, 232, 232), 12));
+        LinearLayout.LayoutParams infoLp = wrap(); infoLp.topMargin = dp(12); page.addView(info, infoLp);
+
+        ScrollView scroll = new ScrollView(this); scroll.addView(page);
+        setContentView(scroll);
+    }
+
+    private interface DepositClick { void onClick(View view); }
+
+    private void addDepositCard(LinearLayout parent, String icon, String titleText, String detail, View.OnClickListener click) {
+        LinearLayout card = new LinearLayout(this);
+        card.setGravity(Gravity.CENTER_VERTICAL);
+        card.setPadding(dp(15), dp(16), dp(15), dp(16));
+        card.setBackground(round(Color.WHITE, 14));
+        TextView ico = text(icon, 27, RED, true);
+        card.addView(ico, new LinearLayout.LayoutParams(dp(48), dp(48)));
+        LinearLayout labels = new LinearLayout(this); labels.setOrientation(LinearLayout.VERTICAL);
+        TextView name = text(titleText, 16, Color.BLACK, true);
+        TextView desc = text(detail, 12, Color.DKGRAY, false);
+        labels.addView(name); LinearLayout.LayoutParams dlp = wrap(); dlp.topMargin = dp(4); labels.addView(desc, dlp);
+        card.addView(labels, new LinearLayout.LayoutParams(0, -2, 1));
+        card.addView(text("›", 28, DARK, true));
+        LinearLayout.LayoutParams lp = wrap(); lp.bottomMargin = dp(11); parent.addView(card, lp);
+        card.setOnClickListener(click);
+    }
+
+    private EditText depositInput(String hint) {
+        EditText input = new EditText(this);
+        input.setSingleLine(true); input.setTextSize(16); input.setHint(hint);
+        input.setPadding(dp(13), dp(10), dp(13), dp(10));
+        input.setBackground(round(Color.rgb(246,247,249), 10));
+        return input;
+    }
+
+    private LinearLayout depositPage(String heading) {
+        depositScreen = true;
+        LinearLayout page = new LinearLayout(this); page.setOrientation(LinearLayout.VERTICAL);
+        page.setPadding(dp(18), dp(18), dp(18), dp(24)); page.setBackgroundColor(BG);
+        TextView title = text(heading, 21, RED, true); title.setPadding(0, 0, 0, dp(15)); page.addView(title);
+        return page;
+    }
+
+    private void showTicketDeposit() {
+        LinearLayout page = depositPage("Tiket Deposit OtomaX");
+        page.addView(text("Nominal Deposit", 14, Color.BLACK, true));
+        EditText amount = depositInput("Contoh: 50000"); amount.setInputType(2);
+        LinearLayout.LayoutParams alp = wrap(); alp.topMargin = dp(7); alp.bottomMargin = dp(15); page.addView(amount, alp);
+        page.addView(text("Atau masukkan kode tiket yang sudah dibuat di OtomaX", 14, Color.BLACK, true));
+        EditText ticket = depositInput("Nomor / kode tiket deposit");
+        LinearLayout.LayoutParams tlp = wrap(); tlp.topMargin = dp(7); tlp.bottomMargin = dp(15); page.addView(ticket, tlp);
+        TextView note = text("Kode tiket manual tidak langsung menambah saldo. Server harus memeriksa tiket ke OtomaX terlebih dahulu.", 13, Color.DKGRAY, false);
+        note.setPadding(dp(12), dp(12), dp(12), dp(12)); note.setBackground(round(Color.rgb(225,239,255), 10)); page.addView(note);
+        TextView submit = button("Periksa / Buat Tiket"); LinearLayout.LayoutParams slp = wrap(); slp.topMargin = dp(20); page.addView(submit, slp);
+        submit.setOnClickListener(v -> {
+            String code = ticket.getText().toString().trim();
+            String nominal = amount.getText().toString().trim();
+            if (code.isEmpty() && nominal.isEmpty()) { showMessage("Deposit", "Masukkan nominal atau kode tiket terlebih dahulu."); return; }
+            showMessage("Belum terhubung", "Input sudah diterima, tetapi pemeriksaan tiket dan pembuatan tiket OtomaX memerlukan endpoint deposit pada Flask. Belum ada saldo yang ditambahkan.");
+        });
+        ScrollView scroll = new ScrollView(this); scroll.addView(page); setContentView(scroll);
+    }
+
+    private void showBankDeposit() {
+        LinearLayout page = depositPage("Transfer Bank / SeaBank");
+        page.addView(text("Nominal Deposit", 14, Color.BLACK, true));
+        EditText amount = depositInput("Contoh: 100000"); amount.setInputType(2);
+        LinearLayout.LayoutParams lp = wrap(); lp.topMargin = dp(7); page.addView(amount, lp);
+        TextView info = text("Rekening tujuan belum diatur. Hubungkan data rekening resmi Nasyah Cell di server sebelum menerima transfer.", 14, Color.DKGRAY, false);
+        info.setPadding(dp(14), dp(14), dp(14), dp(14)); info.setBackground(round(Color.WHITE, 12));
+        LinearLayout.LayoutParams ilp = wrap(); ilp.topMargin = dp(15); page.addView(info, ilp);
+        TextView btn = button("Lanjutkan Transfer"); LinearLayout.LayoutParams blp = wrap(); blp.topMargin = dp(18); page.addView(btn, blp);
+        btn.setOnClickListener(v -> showMessage("Transfer belum aktif", "Nomor rekening dan verifikasi pembayaran belum dikonfigurasi. Jangan transfer ke rekening yang belum ditampilkan secara resmi."));
+        ScrollView scroll = new ScrollView(this); scroll.addView(page); setContentView(scroll);
+    }
+
+    private void showQrisDeposit() {
+        LinearLayout page = depositPage("Pembayaran QRIS");
+        page.addView(text("Nominal Deposit", 14, Color.BLACK, true));
+        EditText amount = depositInput("Contoh: 50000"); amount.setInputType(2);
+        LinearLayout.LayoutParams lp = wrap(); lp.topMargin = dp(7); page.addView(amount, lp);
+        TextView info = text("QRIS merchant Nasyah Cell belum dikonfigurasi. QR pembayaran akan ditampilkan setelah server terhubung dengan penyedia QRIS.", 14, Color.DKGRAY, false);
+        info.setGravity(Gravity.CENTER); info.setPadding(dp(14), dp(25), dp(14), dp(25)); info.setBackground(round(Color.WHITE, 12));
+        LinearLayout.LayoutParams ilp = wrap(); ilp.topMargin = dp(15); page.addView(info, ilp);
+        TextView btn = button("Buat Pembayaran QRIS"); LinearLayout.LayoutParams blp = wrap(); blp.topMargin = dp(18); page.addView(btn, blp);
+        btn.setOnClickListener(v -> showMessage("QRIS belum aktif", "Belum ada QRIS dinamis yang dibuat. Saldo tidak akan berubah sebelum pembayaran diverifikasi."));
+        ScrollView scroll = new ScrollView(this); scroll.addView(page); setContentView(scroll);
     }
 
     private void showQRIS() {
@@ -1117,7 +1217,9 @@ public class MainActivity extends Activity {
 
     @Override
     public void onBackPressed() {
-        if (selectedCategory != null) {
+        if (depositScreen) {
+            showHome();
+        } else if (selectedCategory != null) {
             showHome();
         } else {
             new AlertDialog.Builder(this)
