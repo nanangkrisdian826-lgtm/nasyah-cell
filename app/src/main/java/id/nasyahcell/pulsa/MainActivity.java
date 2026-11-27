@@ -625,7 +625,6 @@ public class MainActivity extends Activity {
                     boolean showResultsArea = nomor.length() >= 4;
                     int visibility = showResultsArea ? View.VISIBLE : View.GONE;
                     if (providerNameText != null) providerNameText.setVisibility(visibility);
-                    if (productLabel != null) productLabel.setVisibility(visibility);
                     if (productList != null) productList.setVisibility(visibility);
                     if (statusText != null) statusText.setVisibility(visibility);
                     if (showResultsArea) {
