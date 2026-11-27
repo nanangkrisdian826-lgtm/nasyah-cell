@@ -112,7 +112,7 @@ public class MainActivity extends Activity {
         page.setOrientation(LinearLayout.VERTICAL);
         page.setGravity(Gravity.CENTER);
         page.setPadding(dp(24), dp(20), dp(24), dp(20));
-        page.setBackgroundColor(DARK);
+        page.setBackgroundColor(Color.WHITE);
 
         ScrollView scroll = new ScrollView(this);
         scroll.setFillViewport(true);
@@ -190,7 +190,7 @@ public class MainActivity extends Activity {
         page.setOrientation(LinearLayout.VERTICAL);
         page.setGravity(Gravity.CENTER);
         page.setPadding(dp(24), dp(20), dp(24), dp(20));
-        page.setBackgroundColor(DARK);
+        page.setBackgroundColor(Color.WHITE);
 
         ScrollView scroll = new ScrollView(this);
         scroll.setFillViewport(true);
