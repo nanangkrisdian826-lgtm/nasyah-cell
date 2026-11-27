@@ -42,7 +42,7 @@ public class MainActivity extends Activity {
 
     // Sesuaikan URL ini jika alamat Cloudflare Tunnel sudah berubah.
     private static final String SERVER_URL =
-            "https://wines-liberal-interesting-sur.trycloudflare.com";
+            "https://beds-promised-counting-says.trycloudflare.com";
 
     // Isi dengan API key yang sama persis seperti di config.json server.
     private static final String API_KEY = "NasyahCell-2026-KunciRahasia-73921";
