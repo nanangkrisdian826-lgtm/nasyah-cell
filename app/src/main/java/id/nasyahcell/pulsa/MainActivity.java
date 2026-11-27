@@ -60,6 +60,7 @@ public class MainActivity extends Activity {
 
     private boolean saldoVisible = false;
     private boolean depositScreen = false;
+    private boolean accountScreen = false;
     private String selectedCategory = null;
 
     private static final int REQUEST_CONTACT = 1001;
@@ -92,6 +93,7 @@ public class MainActivity extends Activity {
     private void showHome() {
         selectedCategory = null;
         depositScreen = false;
+        accountScreen = false;
 
         root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
@@ -1259,6 +1261,8 @@ public class MainActivity extends Activity {
     }
 
     private void showAccount() {
+        accountScreen = true;
+        depositScreen = false;
         LinearLayout screen = new LinearLayout(this);
         screen.setOrientation(LinearLayout.VERTICAL);
         screen.setBackgroundColor(BG);
@@ -1497,7 +1501,9 @@ public class MainActivity extends Activity {
 
     @Override
     public void onBackPressed() {
-        if (depositScreen) {
+        if (accountScreen) {
+            showHome();
+        } else if (depositScreen) {
             showHome();
         } else if (selectedCategory != null) {
             showHome();
