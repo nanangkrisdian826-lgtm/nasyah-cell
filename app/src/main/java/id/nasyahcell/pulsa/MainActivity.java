@@ -1008,33 +1008,158 @@ public class MainActivity extends Activity {
         }
     }
 
-    // MENU DEPOSIT NASYAH CELL - tampilan dan input lokal.
-    // Pembuatan tiket, verifikasi transfer, dan QRIS perlu endpoint backend resmi.
+    // HALAMAN ISI SALDO - tata letak mengikuti contoh AnggiCharger.
+    // Tombol dan form sudah dibuat; pembuatan tiket perlu endpoint deposit OtomaX.
     private void showDeposit() {
         depositScreen = true;
+
+        LinearLayout screen = new LinearLayout(this);
+        screen.setOrientation(LinearLayout.VERTICAL);
+        screen.setBackgroundColor(Color.WHITE);
+
+        // Header merah dengan tombol kembali dan refresh.
+        LinearLayout header = new LinearLayout(this);
+        header.setGravity(Gravity.CENTER_VERTICAL);
+        header.setPadding(dp(15), dp(12), dp(15), dp(12));
+        header.setBackgroundColor(RED);
+
+        TextView home = text("⌂", 29, Color.WHITE, true);
+        home.setGravity(Gravity.CENTER);
+        header.addView(home, new LinearLayout.LayoutParams(dp(48), dp(48)));
+        home.setOnClickListener(v -> showHome());
+
+        TextView headerTitle = text("NASYAH CELL", 19, Color.WHITE, true);
+        LinearLayout.LayoutParams headerTitleLp =
+                new LinearLayout.LayoutParams(0, -2, 1);
+        headerTitleLp.leftMargin = dp(12);
+        header.addView(headerTitle, headerTitleLp);
+
+        TextView refresh = text("⟳", 29, Color.WHITE, true);
+        refresh.setGravity(Gravity.CENTER);
+        header.addView(refresh, new LinearLayout.LayoutParams(dp(45), dp(48)));
+        refresh.setOnClickListener(v -> showDeposit());
+        screen.addView(header);
+
+        ScrollView scroll = new ScrollView(this);
         LinearLayout page = new LinearLayout(this);
         page.setOrientation(LinearLayout.VERTICAL);
-        page.setPadding(dp(18), dp(18), dp(18), dp(24));
-        page.setBackgroundColor(BG);
+        page.setPadding(dp(12), dp(18), dp(12), dp(25));
+        page.setBackgroundColor(Color.WHITE);
 
-        TextView title = text("Isi Saldo Nasyah Cell", 23, RED, true);
-        title.setGravity(Gravity.CENTER);
-        page.addView(title, wrap());
-        TextView subtitle = text("Pilih metode deposit yang tersedia", 14, DARK, false);
-        subtitle.setGravity(Gravity.CENTER);
-        LinearLayout.LayoutParams subLp = wrap(); subLp.topMargin = dp(6); subLp.bottomMargin = dp(18);
-        page.addView(subtitle, subLp);
+        TextView heading = text("Tambah Saldo", 22, Color.WHITE, true);
+        heading.setGravity(Gravity.CENTER_VERTICAL);
+        heading.setPadding(dp(14), dp(18), dp(14), dp(18));
+        heading.setBackgroundColor(RED);
+        page.addView(heading, wrap());
 
-        addDepositCard(page, "▣", "Tiket Deposit OtomaX", "Masukkan nominal atau kode tiket deposit yang sudah dibuat", v -> showTicketDeposit());
-        addDepositCard(page, "🏦", "Transfer Bank / SeaBank", "Transfer ke rekening Nasyah Cell dan kirim bukti pembayaran", v -> showBankDeposit());
-        addDepositCard(page, "▦", "QRIS", "Pembayaran melalui mobile banking atau e-wallet", v -> showQrisDeposit());
-        TextView info = text("Saldo hanya bertambah setelah pembayaran diverifikasi oleh sistem.", 13, Color.DKGRAY, false);
-        info.setPadding(dp(12), dp(14), dp(12), dp(14));
-        info.setBackground(round(Color.rgb(255, 232, 232), 12));
-        LinearLayout.LayoutParams infoLp = wrap(); infoLp.topMargin = dp(12); page.addView(info, infoLp);
+        TextView instructions = text(
+                "\"TIDAK MENERIMA TRANSFER MELALUI MESIN EDC, NEKAT SALDO TIDAK AKAN BISA DIGUNAKAN.\\n\\n"
+                + "Mohon sebelum transfer cek dulu nama dan rekening bank dan nominal. "
+                + "Tambah saldo otomatis masuk jika sesuai nominal.\\n\\n"
+                + "OPEN DEPOSIT jam 06.00 - 21.00 WIB.\"",
+                16, DARK, false
+        );
+        instructions.setPadding(dp(12), dp(28), dp(12), dp(24));
+        page.addView(instructions, wrap());
 
-        ScrollView scroll = new ScrollView(this); scroll.addView(page);
-        setContentView(scroll);
+        LinearLayout formArea = new LinearLayout(this);
+        formArea.setOrientation(LinearLayout.VERTICAL);
+        formArea.setPadding(dp(5), dp(5), dp(5), dp(12));
+        formArea.setVisibility(View.GONE);
+
+        TextView formTitle = text("Silakan Isi", 19, DARK, true);
+        LinearLayout.LayoutParams formTitleLp = wrap();
+        formTitleLp.topMargin = dp(10);
+        formTitleLp.bottomMargin = dp(20);
+        formArea.addView(formTitle, formTitleLp);
+
+        TextView nominalLabel = text("Nominal", 16, DARK, false);
+        formArea.addView(nominalLabel);
+
+        EditText nominalInput = new EditText(this);
+        nominalInput.setSingleLine(true);
+        nominalInput.setTextSize(17);
+        nominalInput.setInputType(android.text.InputType.TYPE_CLASS_NUMBER);
+        nominalInput.setPadding(dp(13), dp(10), dp(13), dp(10));
+        nominalInput.setBackground(round(Color.WHITE, 8));
+        GradientDrawable inputBorder = round(Color.WHITE, 8);
+        inputBorder.setStroke(dp(1), DARK);
+        nominalInput.setBackground(inputBorder);
+        LinearLayout.LayoutParams nominalLp = wrap();
+        nominalLp.topMargin = dp(10);
+        nominalLp.bottomMargin = dp(18);
+        formArea.addView(nominalInput, nominalLp);
+
+        LinearLayout actionRow = new LinearLayout(this);
+        actionRow.setOrientation(LinearLayout.HORIZONTAL);
+
+        TextView send = text("KIRIM", 17, Color.WHITE, true);
+        send.setGravity(Gravity.CENTER);
+        send.setBackground(round(DARK, 8));
+        actionRow.addView(send, new LinearLayout.LayoutParams(0, dp(58), 1));
+
+        TextView cancel = text("CANCEL", 17, Color.WHITE, true);
+        cancel.setGravity(Gravity.CENTER);
+        cancel.setBackground(round(RED, 8));
+        LinearLayout.LayoutParams cancelLp =
+                new LinearLayout.LayoutParams(0, dp(58), 1);
+        cancelLp.leftMargin = dp(8);
+        actionRow.addView(cancel, cancelLp);
+        formArea.addView(actionRow);
+
+        page.addView(formArea, wrap());
+
+        TextView ticketButton = text("TIKET TAMBAH SALDO", 18, Color.WHITE, true);
+        ticketButton.setGravity(Gravity.CENTER);
+        ticketButton.setPadding(dp(10), dp(17), dp(10), dp(17));
+        ticketButton.setBackground(round(DARK, 8));
+        LinearLayout.LayoutParams ticketButtonLp = wrap();
+        ticketButtonLp.leftMargin = dp(4);
+        ticketButtonLp.rightMargin = dp(4);
+        ticketButtonLp.topMargin = dp(10);
+        ticketButtonLp.bottomMargin = dp(42);
+        page.addView(ticketButton, ticketButtonLp);
+
+        TextView ticketCount = text("Menampilkan 0 dari 0 data", 15, DARK, false);
+        LinearLayout.LayoutParams countLp = wrap();
+        countLp.leftMargin = dp(10);
+        countLp.bottomMargin = dp(18);
+        page.addView(ticketCount, countLp);
+
+        TextView emptyTicket = text("Belum ada tiket deposit.", 15, DARK, false);
+        emptyTicket.setGravity(Gravity.CENTER);
+        emptyTicket.setPadding(dp(12), dp(22), dp(12), dp(22));
+        emptyTicket.setBackgroundColor(Color.rgb(240, 240, 240));
+        page.addView(emptyTicket, wrap());
+
+        ticketButton.setOnClickListener(v -> {
+            formArea.setVisibility(View.VISIBLE);
+            ticketButton.setVisibility(View.GONE);
+            nominalInput.requestFocus();
+        });
+
+        cancel.setOnClickListener(v -> {
+            nominalInput.setText("");
+            formArea.setVisibility(View.GONE);
+            ticketButton.setVisibility(View.VISIBLE);
+        });
+
+        send.setOnClickListener(v -> {
+            String nominal = nominalInput.getText().toString().trim();
+            if (nominal.isEmpty() || Long.parseLong(nominal) < 10000) {
+                showMessage("Nominal tidak valid",
+                        "Masukkan nominal minimal Rp10.000.");
+                return;
+            }
+            showMessage("Pembuatan tiket belum terhubung",
+                    "Nominal Rp" + nominal + " sudah diisi. "
+                    + "Tiket belum dibuat dan saldo belum bertambah karena "
+                    + "endpoint pembuatan tiket deposit OtomaX belum tersedia.");
+        });
+
+        scroll.addView(page);
+        screen.addView(scroll, new LinearLayout.LayoutParams(-1, 0, 1));
+        setContentView(screen);
     }
 
     private interface DepositClick { void onClick(View view); }
