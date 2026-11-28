@@ -44,7 +44,7 @@ public class MainActivity extends Activity {
 
     // Sesuaikan URL ini jika alamat Cloudflare Tunnel sudah berubah.
     private static final String SERVER_URL =
-            "https://determining-bibliography-clusters-brook.trycloudflare.com";
+            "https://beds-promised-counting-says.trycloudflare.com";
 
     // Isi dengan API key yang sama persis seperti di config.json server.
     private static final String API_KEY = "NasyahCell-2026-KunciRahasia-73921";
@@ -112,280 +112,65 @@ public class MainActivity extends Activity {
         page.setOrientation(LinearLayout.VERTICAL);
         page.setGravity(Gravity.CENTER);
         page.setPadding(dp(24), dp(20), dp(24), dp(20));
-        page.setBackgroundColor(Color.WHITE);
+        page.setBackgroundColor(DARK);
 
         ScrollView scroll = new ScrollView(this);
         scroll.setFillViewport(true);
+        scroll.setClipToPadding(false);
 
         LinearLayout card = new LinearLayout(this);
         card.setOrientation(LinearLayout.VERTICAL);
         card.setGravity(Gravity.CENTER_HORIZONTAL);
-        card.setPadding(dp(20), dp(28), dp(20), dp(25));
+        card.setPadding(dp(18), dp(25), dp(18), dp(25));
         card.setBackground(round(PANEL, 20));
 
-        TextView title = text("LOGIN NASYAH CELL", 24, DARK, true);
+        TextView title = text("LOGIN", 28, DARK, true);
         title.setGravity(Gravity.CENTER);
         card.addView(title, wrap());
 
         TextView logo = text("NASYAH\nCELL", 25, RED, true);
         logo.setGravity(Gravity.CENTER);
         logo.setBackground(round(Color.WHITE, 60));
-        LinearLayout.LayoutParams logoLp = new LinearLayout.LayoutParams(dp(110), dp(110));
+        LinearLayout.LayoutParams logoLp =
+                new LinearLayout.LayoutParams(dp(110), dp(110));
         logoLp.gravity = Gravity.CENTER;
-        logoLp.topMargin = dp(22);
-        logoLp.bottomMargin = dp(28);
+        logoLp.topMargin = dp(25);
+        logoLp.bottomMargin = dp(35);
         card.addView(logo, logoLp);
 
-        EditText idAgen = authInput("ID Agen / Kode Reseller");
-        idAgen.setSingleLine(true);
-        card.addView(idAgen, authFieldLp());
+        EditText kode = authInput("Kode Reseller");
+        card.addView(kode, authFieldLp());
 
-        EditText nomorHp = authInput("Nomor HP terdaftar di OtomaX");
-        nomorHp.setInputType(android.text.InputType.TYPE_CLASS_PHONE);
-        card.addView(nomorHp, authFieldLp());
+        EditText password = authInput("Password Nasyah Cell");
+        password.setInputType(129);
+        card.addView(password, authFieldLp());
 
-        TextView mintaOtp = button("KIRIM OTP KE ADMIN CENTER");
-        LinearLayout.LayoutParams otpLp = new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, dp(56));
-        otpLp.topMargin = dp(8);
-        card.addView(mintaOtp, otpLp);
-        mintaOtp.setOnClickListener(v -> {
-            String kode = idAgen.getText().toString().trim();
-            String hp = nomorHp.getText().toString().trim();
-            if (kode.isEmpty() || hp.isEmpty()) {
-                showMessage("Login", "Masukkan ID Agen dan nomor HP terlebih dahulu.");
-                return;
-            }
-            mintaOtpLogin(kode, hp, mintaOtp);
-        });
-
-        EditText otp = authInput("Masukkan OTP 6 digit dari admin");
-        otp.setInputType(android.text.InputType.TYPE_CLASS_NUMBER);
-        otp.setFilters(new android.text.InputFilter[]{new android.text.InputFilter.LengthFilter(6)});
-        LinearLayout.LayoutParams otpFieldLp = authFieldLp();
-        otpFieldLp.topMargin = dp(18);
-        card.addView(otp, otpFieldLp);
-
-        TextView masuk = button("VERIFIKASI OTP & MASUK");
-        LinearLayout.LayoutParams masukLp = new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, dp(56));
-        masukLp.topMargin = dp(8);
+        TextView masuk = button("MASUK");
+        LinearLayout.LayoutParams masukLp = wrap();
+        masukLp.topMargin = dp(15);
         card.addView(masuk, masukLp);
-        masuk.setOnClickListener(v -> {
-            String kode = idAgen.getText().toString().trim();
-            String kodeOtp = otp.getText().toString().trim();
-            if (kode.isEmpty() || kodeOtp.length() != 6) {
-                showMessage("Login", "Masukkan ID Agen dan OTP 6 digit.");
-                return;
-            }
-            verifikasiOtpLogin(kode, kodeOtp, masuk);
-        });
+        masuk.setOnClickListener(v -> prosesAuth(
+                "/api/login",
+                kode.getText().toString().trim(),
+                password.getText().toString(),
+                "",
+                ""
+        ));
 
-        TextView daftar = text("Belum punya akun? DAFTAR", 14, BLUE, true);
+        TextView daftar = text(
+                "Belum punya akun? DAFTAR",
+                14, BLUE, true
+        );
         daftar.setGravity(Gravity.CENTER);
         LinearLayout.LayoutParams daftarLp = wrap();
         daftarLp.topMargin = dp(22);
         card.addView(daftar, daftarLp);
         daftar.setOnClickListener(v -> showRegister());
 
-        TextView footer = text("OTP berlaku 5 menit. Minta kode hanya melalui aplikasi resmi.", 12, DARK, false);
-        footer.setGravity(Gravity.CENTER);
-        LinearLayout.LayoutParams footerLp = wrap();
-        footerLp.topMargin = dp(22);
-        card.addView(footer, footerLp);
-
-        scroll.addView(card, new ScrollView.LayoutParams(-1, -2));
-        page.addView(scroll, new LinearLayout.LayoutParams(-1, -1));
-        setContentView(page);
-    }
-
-    private JSONObject postAuthJson(String endpoint, JSONObject body) throws Exception {
-        HttpURLConnection conn = null;
-        try {
-            URL url = new URL(SERVER_URL + endpoint);
-            conn = (HttpURLConnection) url.openConnection();
-            conn.setRequestMethod("POST");
-            conn.setConnectTimeout(15000);
-            conn.setReadTimeout(15000);
-            conn.setDoOutput(true);
-            conn.setRequestProperty("Content-Type", "application/json; charset=UTF-8");
-            conn.setRequestProperty("X-API-Key", API_KEY);
-            byte[] bytes = body.toString().getBytes("UTF-8");
-            try (java.io.OutputStream output = conn.getOutputStream()) {
-                output.write(bytes);
-            }
-            int code = conn.getResponseCode();
-            java.io.InputStream stream = (code >= 200 && code < 300)
-                    ? conn.getInputStream() : conn.getErrorStream();
-            if (stream == null) throw new Exception("Server tidak memberikan respons (HTTP " + code + ").");
-            BufferedReader reader = new BufferedReader(new InputStreamReader(stream, "UTF-8"));
-            StringBuilder response = new StringBuilder();
-            String line;
-            while ((line = reader.readLine()) != null) response.append(line);
-            reader.close();
-            JSONObject result = new JSONObject(response.toString());
-            if (code < 200 || code >= 300) {
-                throw new Exception(result.optString("error", "Permintaan gagal (HTTP " + code + ")."));
-            }
-            return result;
-        } finally {
-            if (conn != null) conn.disconnect();
-        }
-    }
-
-    private void mintaOtpLogin(String kode, String hp, TextView tombol) {
-        tombol.setEnabled(false);
-        new Thread(() -> {
-            try {
-                JSONObject body = new JSONObject();
-                body.put("id_agen", kode);
-                body.put("no_hp", hp);
-                JSONObject result = postAuthJson("/api/login-otp/start", body);
-                runOnUiThread(() -> {
-                    tombol.setEnabled(true);
-                    showMessage("Permintaan OTP", result.optString("pesan",
-                            "Permintaan OTP diproses. Silakan hubungi admin untuk mendapatkan kode."));
-                });
-            } catch (Exception e) {
-                String msg = e.getMessage() == null ? "Periksa koneksi server." : e.getMessage();
-                runOnUiThread(() -> {
-                    tombol.setEnabled(true);
-                    showMessage("OTP Gagal Dikirim", msg);
-                });
-            }
-        }).start();
-    }
-
-    private void verifikasiOtpLogin(String kode, String otp, TextView tombol) {
-        tombol.setEnabled(false);
-        new Thread(() -> {
-            try {
-                JSONObject body = new JSONObject();
-                body.put("id_agen", kode);
-                body.put("otp", otp);
-                JSONObject result = postAuthJson("/api/login-otp/verify", body);
-                String token = result.optString("token", "");
-                if (token.isEmpty()) throw new Exception("Server tidak mengirim token login.");
-                getSharedPreferences(PREFS, MODE_PRIVATE).edit()
-                        .putString(PREF_TOKEN, token)
-                        .putString(PREF_KODE, kode)
-                        .apply();
-                tokenLogin = token;
-                runOnUiThread(() -> {
-                    tombol.setEnabled(true);
-                    showHome();
-                });
-            } catch (Exception e) {
-                String msg = e.getMessage() == null ? "Periksa koneksi server." : e.getMessage();
-                runOnUiThread(() -> {
-                    tombol.setEnabled(true);
-                    showMessage("Login Gagal", msg);
-                });
-            }
-        }).start();
-    }
-
-    private void showRegister() {
-        accountScreen = false;
-        depositScreen = false;
-        selectedCategory = null;
-
-        LinearLayout page = new LinearLayout(this);
-        page.setOrientation(LinearLayout.VERTICAL);
-        page.setGravity(Gravity.CENTER);
-        page.setPadding(dp(20), dp(18), dp(20), dp(18));
-        page.setBackgroundColor(Color.WHITE);
-
-        ScrollView scroll = new ScrollView(this);
-        scroll.setFillViewport(true);
-        scroll.setClipToPadding(false);
-        scroll.setVerticalScrollBarEnabled(false);
-
-        LinearLayout card = new LinearLayout(this);
-        card.setOrientation(LinearLayout.VERTICAL);
-        card.setGravity(Gravity.CENTER_HORIZONTAL);
-        card.setPadding(dp(18), dp(25), dp(18), dp(22));
-        card.setMinimumHeight(dp(610));
-        card.setBackground(round(PANEL, 22));
-
-        TextView title = text("PENDAFTARAN", 27, DARK, true);
-        title.setGravity(Gravity.CENTER);
-        LinearLayout.LayoutParams titleLp = wrap();
-        titleLp.bottomMargin = dp(30);
-        card.addView(title, titleLp);
-
-        EditText nama = authInput("Nama");
-        nama.setInputType(android.text.InputType.TYPE_CLASS_TEXT | android.text.InputType.TYPE_TEXT_FLAG_CAP_WORDS);
-        card.addView(nama, authFieldLp());
-
-        EditText alamat = authInput("Alamat");
-        alamat.setSingleLine(true);
-        card.addView(alamat, authFieldLp());
-
-        EditText hp = authInput("No HP");
-        hp.setInputType(android.text.InputType.TYPE_CLASS_PHONE);
-        card.addView(hp, authFieldLp());
-
-        EditText referral = authInput("Kode Referral");
-        referral.setSingleLine(true);
-        card.addView(referral, new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, dp(58)));
-
-        TextView optional = text("Tidak wajib diisi.", 12, DARK, false);
-        LinearLayout.LayoutParams optionalLp = wrap();
-        optionalLp.leftMargin = dp(5);
-        optionalLp.topMargin = dp(4);
-        optionalLp.bottomMargin = dp(15);
-        card.addView(optional, optionalLp);
-
-        CheckBox setuju = new CheckBox(this);
-        setuju.setButtonTintList(android.content.res.ColorStateList.valueOf(DARK));
-        setuju.setText("Dengan mendaftar, Anda dianggap telah setuju dengan syarat dan ketentuan yang berlaku.");
-        setuju.setTextColor(DARK);
-        setuju.setTextSize(13);
-        setuju.setPadding(dp(4), dp(2), dp(2), dp(2));
-        card.addView(setuju, new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
-
-        TextView kirim = button("KIRIM");
-        LinearLayout.LayoutParams kirimLp = new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, dp(58));
-        kirimLp.topMargin = dp(20);
-        card.addView(kirim, kirimLp);
-        kirim.setOnClickListener(v -> {
-            String namaText = nama.getText().toString().trim();
-            String alamatText = alamat.getText().toString().trim();
-            String hpText = hp.getText().toString().trim();
-            String referralText = referral.getText().toString().trim();
-            if (namaText.isEmpty() || alamatText.isEmpty() || hpText.isEmpty()) {
-                showMessage("Pendaftaran", "Nama, alamat, dan nomor HP wajib diisi.");
-                return;
-            }
-            if (hpText.replaceAll("[^0-9]", "").length() < 9) {
-                showMessage("Pendaftaran", "Nomor HP belum valid.");
-                return;
-            }
-            if (!setuju.isChecked()) {
-                showMessage("Persetujuan", "Centang syarat dan ketentuan terlebih dahulu.");
-                return;
-            }
-            kirimPermohonan(namaText, alamatText, hpText, referralText);
-        });
-
-        TextView kembali = text("←  KEMBALI", 15, RED, true);
-        kembali.setGravity(Gravity.CENTER);
-        kembali.setPadding(dp(15), dp(14), dp(15), dp(14));
-        kembali.setBackground(round(Color.WHITE, 8));
-        LinearLayout.LayoutParams kembaliLp = new LinearLayout.LayoutParams(dp(150), dp(58));
-        kembaliLp.gravity = Gravity.CENTER;
-        kembaliLp.topMargin = dp(18);
-        card.addView(kembali, kembaliLp);
-        kembali.setOnClickListener(v -> showLogin());
-
         TextView footer = text("NASYAH CELL", 16, DARK, true);
         footer.setGravity(Gravity.CENTER);
         LinearLayout.LayoutParams footerLp = wrap();
-        footerLp.topMargin = dp(24);
+        footerLp.topMargin = dp(30);
         card.addView(footer, footerLp);
 
         scroll.addView(card, new ScrollView.LayoutParams(
@@ -396,55 +181,83 @@ public class MainActivity extends Activity {
         setContentView(page);
     }
 
-    private void kirimPermohonan(String nama, String alamat, String hp, String referral) {
-        new Thread(() -> {
-            HttpURLConnection conn = null;
-            try {
-                URL url = new URL(SERVER_URL + "/api/permohonan");
-                conn = (HttpURLConnection) url.openConnection();
-                conn.setRequestMethod("POST");
-                conn.setConnectTimeout(15000);
-                conn.setReadTimeout(15000);
-                conn.setDoOutput(true);
-                conn.setRequestProperty("Content-Type", "application/json; charset=UTF-8");
-                conn.setRequestProperty("X-API-Key", API_KEY);
+    private void showRegister() {
+        accountScreen = false;
+        depositScreen = false;
+        selectedCategory = null;
 
-                JSONObject body = new JSONObject();
-                body.put("nama", nama);
-                body.put("alamat", alamat);
-                body.put("no_hp", hp);
-                body.put("kode_referral", referral);
-                byte[] bytes = body.toString().getBytes("UTF-8");
-                try (java.io.OutputStream output = conn.getOutputStream()) {
-                    output.write(bytes);
-                }
+        LinearLayout page = new LinearLayout(this);
+        page.setOrientation(LinearLayout.VERTICAL);
+        page.setGravity(Gravity.CENTER);
+        page.setPadding(dp(24), dp(20), dp(24), dp(20));
+        page.setBackgroundColor(DARK);
 
-                int code = conn.getResponseCode();
-                java.io.InputStream stream = (code >= 200 && code < 300)
-                        ? conn.getInputStream() : conn.getErrorStream();
-                if (stream == null) throw new Exception("Server tidak memberikan respons.");
-                BufferedReader reader = new BufferedReader(new InputStreamReader(stream, "UTF-8"));
-                StringBuilder result = new StringBuilder();
-                String line;
-                while ((line = reader.readLine()) != null) result.append(line);
-                reader.close();
-                JSONObject json = new JSONObject(result.toString());
-                if (code < 200 || code >= 300) {
-                    throw new Exception(json.optString("error", "Permohonan gagal dikirim."));
-                }
-                runOnUiThread(() -> new AlertDialog.Builder(MainActivity.this)
-                        .setTitle("Permohonan Terkirim")
-                        .setMessage("Permohonan pendaftaran berhasil dikirim dan menunggu pemeriksaan admin. Silakan tunggu konfirmasi dari admin Nasyah Cell.")
-                        .setPositiveButton("OK", (dialog, which) -> showLogin())
-                        .setCancelable(false)
-                        .show());
-            } catch (Exception e) {
-                String msg = e.getMessage() == null ? "Periksa koneksi server." : e.getMessage();
-                runOnUiThread(() -> showMessage("Pendaftaran Gagal", msg));
-            } finally {
-                if (conn != null) conn.disconnect();
-            }
-        }).start();
+        ScrollView scroll = new ScrollView(this);
+        scroll.setFillViewport(true);
+        scroll.setClipToPadding(false);
+
+        LinearLayout card = new LinearLayout(this);
+        card.setOrientation(LinearLayout.VERTICAL);
+        card.setGravity(Gravity.CENTER_HORIZONTAL);
+        card.setPadding(dp(18), dp(25), dp(18), dp(25));
+        card.setBackground(round(PANEL, 20));
+
+        TextView title = text("PENDAFTARAN", 27, DARK, true);
+        title.setGravity(Gravity.CENTER);
+        LinearLayout.LayoutParams titleLp = wrap();
+        titleLp.bottomMargin = dp(30);
+        card.addView(title, titleLp);
+
+        // Field ini tetap mengikuti API Flask yang sudah ada.
+        EditText kode = authInput("Kode Reseller OtomaX");
+        card.addView(kode, authFieldLp());
+
+        EditText aktivasi = authInput("Kode Aktivasi dari Admin");
+        card.addView(aktivasi, authFieldLp());
+
+        EditText password = authInput("Buat Password (minimal 8 karakter)");
+        password.setInputType(129);
+        card.addView(password, authFieldLp());
+
+        EditText konfirmasi = authInput("Ulangi Password");
+        konfirmasi.setInputType(129);
+        card.addView(konfirmasi, authFieldLp());
+
+        TextView daftar = button("KIRIM");
+        LinearLayout.LayoutParams daftarLp = wrap();
+        daftarLp.topMargin = dp(12);
+        card.addView(daftar, daftarLp);
+        daftar.setOnClickListener(v -> prosesAuth(
+                "/api/daftar",
+                kode.getText().toString().trim(),
+                password.getText().toString(),
+                konfirmasi.getText().toString(),
+                aktivasi.getText().toString().trim()
+        ));
+
+        TextView kembali = text("←  KEMBALI", 15, RED, true);
+        kembali.setGravity(Gravity.CENTER);
+        kembali.setPadding(dp(15), dp(15), dp(15), dp(15));
+        kembali.setBackground(round(Color.WHITE, 8));
+        LinearLayout.LayoutParams kembaliLp =
+                new LinearLayout.LayoutParams(dp(150), -2);
+        kembaliLp.gravity = Gravity.CENTER;
+        kembaliLp.topMargin = dp(20);
+        card.addView(kembali, kembaliLp);
+        kembali.setOnClickListener(v -> showLogin());
+
+        TextView footer = text("NASYAH CELL", 16, DARK, true);
+        footer.setGravity(Gravity.CENTER);
+        LinearLayout.LayoutParams footerLp = wrap();
+        footerLp.topMargin = dp(25);
+        card.addView(footer, footerLp);
+
+        scroll.addView(card, new ScrollView.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+        ));
+        page.addView(scroll, new LinearLayout.LayoutParams(-1, -1));
+        setContentView(page);
     }
 
     private EditText authInput(String hint) {
@@ -1181,17 +994,39 @@ public class MainActivity extends Activity {
                     daftarProduk.addAll(products);
                     selectedProduct = null;
                     selectedProviderCode = null;
-                    if (providerNameText != null) {
-                        providerNameText.setText("");
+
+                    // Server hanya mengembalikan provider yang prefix-nya cocok.
+                    // Jika tepat satu provider cocok, pilih otomatis tanpa daftar manual.
+                    if (providers.size() == 1) {
+                        JSONObject provider = providers.get(0);
+                        selectedProviderCode = provider.optString("kode_provider", "");
+                        if (selectedProviderCode.isEmpty()) {
+                            selectedProviderCode = provider.optString("nama_provider", "");
+                        }
+                        if (providerNameText != null) {
+                            String nama = provider.optString("nama_provider", "Operator");
+                            String prefix = provider.optString("prefix_cocok", "");
+                            providerNameText.setText("Operator terdeteksi: " + nama +
+                                    (prefix.isEmpty() ? "" : "  |  Prefix: " + prefix));
+                        }
+                    } else if (providerNameText != null) {
+                        providerNameText.setText(providers.isEmpty()
+                                ? json.optString("pesan", "Operator tidak ditemukan.")
+                                : "Pilih operator yang cocok:");
                     }
                     renderProductCards();
                 });
             } catch (Exception e) {
+                String errorText = e.getMessage() == null
+                        ? "Gagal mengambil produk dari server." : e.getMessage();
                 runOnUiThread(() -> {
                     daftarProduk.clear();
                     daftarProvider.clear();
                     selectedProviderCode = null;
-                    if (providerNameText != null) providerNameText.setText("");
+                    if (providerNameText != null) {
+                        providerNameText.setText(errorText);
+                        providerNameText.setVisibility(View.VISIBLE);
+                    }
                     renderProductCards();
                 });
             } finally {
