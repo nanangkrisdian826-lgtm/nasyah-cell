@@ -116,69 +116,173 @@ public class MainActivity extends Activity {
 
         ScrollView scroll = new ScrollView(this);
         scroll.setFillViewport(true);
-        scroll.setClipToPadding(false);
 
         LinearLayout card = new LinearLayout(this);
         card.setOrientation(LinearLayout.VERTICAL);
         card.setGravity(Gravity.CENTER_HORIZONTAL);
-        card.setPadding(dp(18), dp(25), dp(18), dp(25));
+        card.setPadding(dp(20), dp(28), dp(20), dp(25));
         card.setBackground(round(PANEL, 20));
 
-        TextView title = text("LOGIN", 28, DARK, true);
+        TextView title = text("LOGIN NASYAH CELL", 24, DARK, true);
         title.setGravity(Gravity.CENTER);
         card.addView(title, wrap());
 
         TextView logo = text("NASYAH\nCELL", 25, RED, true);
         logo.setGravity(Gravity.CENTER);
         logo.setBackground(round(Color.WHITE, 60));
-        LinearLayout.LayoutParams logoLp =
-                new LinearLayout.LayoutParams(dp(110), dp(110));
+        LinearLayout.LayoutParams logoLp = new LinearLayout.LayoutParams(dp(110), dp(110));
         logoLp.gravity = Gravity.CENTER;
-        logoLp.topMargin = dp(25);
-        logoLp.bottomMargin = dp(35);
+        logoLp.topMargin = dp(22);
+        logoLp.bottomMargin = dp(28);
         card.addView(logo, logoLp);
 
-        EditText kode = authInput("Kode Reseller");
-        card.addView(kode, authFieldLp());
+        EditText idAgen = authInput("ID Agen / Kode Reseller");
+        idAgen.setSingleLine(true);
+        card.addView(idAgen, authFieldLp());
 
-        EditText password = authInput("Password Nasyah Cell");
-        password.setInputType(129);
-        card.addView(password, authFieldLp());
+        EditText nomorHp = authInput("Nomor HP terdaftar di OtomaX");
+        nomorHp.setInputType(android.text.InputType.TYPE_CLASS_PHONE);
+        card.addView(nomorHp, authFieldLp());
 
-        TextView masuk = button("MASUK");
-        LinearLayout.LayoutParams masukLp = wrap();
-        masukLp.topMargin = dp(15);
+        TextView mintaOtp = button("KIRIM OTP KE ADMIN CENTER");
+        LinearLayout.LayoutParams otpLp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, dp(56));
+        otpLp.topMargin = dp(8);
+        card.addView(mintaOtp, otpLp);
+        mintaOtp.setOnClickListener(v -> {
+            String kode = idAgen.getText().toString().trim();
+            String hp = nomorHp.getText().toString().trim();
+            if (kode.isEmpty() || hp.isEmpty()) {
+                showMessage("Login", "Masukkan ID Agen dan nomor HP terlebih dahulu.");
+                return;
+            }
+            mintaOtpLogin(kode, hp, mintaOtp);
+        });
+
+        EditText otp = authInput("Masukkan OTP 6 digit dari admin");
+        otp.setInputType(android.text.InputType.TYPE_CLASS_NUMBER);
+        otp.setFilters(new android.text.InputFilter[]{new android.text.InputFilter.LengthFilter(6)});
+        LinearLayout.LayoutParams otpFieldLp = authFieldLp();
+        otpFieldLp.topMargin = dp(18);
+        card.addView(otp, otpFieldLp);
+
+        TextView masuk = button("VERIFIKASI OTP & MASUK");
+        LinearLayout.LayoutParams masukLp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, dp(56));
+        masukLp.topMargin = dp(8);
         card.addView(masuk, masukLp);
-        masuk.setOnClickListener(v -> prosesAuth(
-                "/api/login",
-                kode.getText().toString().trim(),
-                password.getText().toString(),
-                "",
-                ""
-        ));
+        masuk.setOnClickListener(v -> {
+            String kode = idAgen.getText().toString().trim();
+            String kodeOtp = otp.getText().toString().trim();
+            if (kode.isEmpty() || kodeOtp.length() != 6) {
+                showMessage("Login", "Masukkan ID Agen dan OTP 6 digit.");
+                return;
+            }
+            verifikasiOtpLogin(kode, kodeOtp, masuk);
+        });
 
-        TextView daftar = text(
-                "Belum punya akun? DAFTAR",
-                14, BLUE, true
-        );
+        TextView daftar = text("Belum punya akun? DAFTAR", 14, BLUE, true);
         daftar.setGravity(Gravity.CENTER);
         LinearLayout.LayoutParams daftarLp = wrap();
         daftarLp.topMargin = dp(22);
         card.addView(daftar, daftarLp);
         daftar.setOnClickListener(v -> showRegister());
 
-        TextView footer = text("NASYAH CELL", 16, DARK, true);
+        TextView footer = text("OTP berlaku 5 menit. Minta kode hanya melalui aplikasi resmi.", 12, DARK, false);
         footer.setGravity(Gravity.CENTER);
         LinearLayout.LayoutParams footerLp = wrap();
-        footerLp.topMargin = dp(30);
+        footerLp.topMargin = dp(22);
         card.addView(footer, footerLp);
 
-        scroll.addView(card, new ScrollView.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT
-        ));
+        scroll.addView(card, new ScrollView.LayoutParams(-1, -2));
         page.addView(scroll, new LinearLayout.LayoutParams(-1, -1));
         setContentView(page);
+    }
+
+    private JSONObject postAuthJson(String endpoint, JSONObject body) throws Exception {
+        HttpURLConnection conn = null;
+        try {
+            URL url = new URL(SERVER_URL + endpoint);
+            conn = (HttpURLConnection) url.openConnection();
+            conn.setRequestMethod("POST");
+            conn.setConnectTimeout(15000);
+            conn.setReadTimeout(15000);
+            conn.setDoOutput(true);
+            conn.setRequestProperty("Content-Type", "application/json; charset=UTF-8");
+            conn.setRequestProperty("X-API-Key", API_KEY);
+            byte[] bytes = body.toString().getBytes("UTF-8");
+            try (java.io.OutputStream output = conn.getOutputStream()) {
+                output.write(bytes);
+            }
+            int code = conn.getResponseCode();
+            java.io.InputStream stream = (code >= 200 && code < 300)
+                    ? conn.getInputStream() : conn.getErrorStream();
+            if (stream == null) throw new Exception("Server tidak memberikan respons (HTTP " + code + ").");
+            BufferedReader reader = new BufferedReader(new InputStreamReader(stream, "UTF-8"));
+            StringBuilder response = new StringBuilder();
+            String line;
+            while ((line = reader.readLine()) != null) response.append(line);
+            reader.close();
+            JSONObject result = new JSONObject(response.toString());
+            if (code < 200 || code >= 300) {
+                throw new Exception(result.optString("error", "Permintaan gagal (HTTP " + code + ")."));
+            }
+            return result;
+        } finally {
+            if (conn != null) conn.disconnect();
+        }
+    }
+
+    private void mintaOtpLogin(String kode, String hp, TextView tombol) {
+        tombol.setEnabled(false);
+        new Thread(() -> {
+            try {
+                JSONObject body = new JSONObject();
+                body.put("id_agen", kode);
+                body.put("no_hp", hp);
+                JSONObject result = postAuthJson("/api/login-otp/start", body);
+                runOnUiThread(() -> {
+                    tombol.setEnabled(true);
+                    showMessage("Permintaan OTP", result.optString("pesan",
+                            "Permintaan OTP diproses. Silakan hubungi admin untuk mendapatkan kode."));
+                });
+            } catch (Exception e) {
+                String msg = e.getMessage() == null ? "Periksa koneksi server." : e.getMessage();
+                runOnUiThread(() -> {
+                    tombol.setEnabled(true);
+                    showMessage("OTP Gagal Dikirim", msg);
+                });
+            }
+        }).start();
+    }
+
+    private void verifikasiOtpLogin(String kode, String otp, TextView tombol) {
+        tombol.setEnabled(false);
+        new Thread(() -> {
+            try {
+                JSONObject body = new JSONObject();
+                body.put("id_agen", kode);
+                body.put("otp", otp);
+                JSONObject result = postAuthJson("/api/login-otp/verify", body);
+                String token = result.optString("token", "");
+                if (token.isEmpty()) throw new Exception("Server tidak mengirim token login.");
+                getSharedPreferences(PREFS, MODE_PRIVATE).edit()
+                        .putString(PREF_TOKEN, token)
+                        .putString(PREF_KODE, kode)
+                        .apply();
+                tokenLogin = token;
+                runOnUiThread(() -> {
+                    tombol.setEnabled(true);
+                    showHome();
+                });
+            } catch (Exception e) {
+                String msg = e.getMessage() == null ? "Periksa koneksi server." : e.getMessage();
+                runOnUiThread(() -> {
+                    tombol.setEnabled(true);
+                    showMessage("Login Gagal", msg);
+                });
+            }
+        }).start();
     }
 
     private void showRegister() {
