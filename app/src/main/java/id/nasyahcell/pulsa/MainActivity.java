@@ -44,7 +44,7 @@ public class MainActivity extends Activity {
 
     // Sesuaikan URL ini jika alamat Cloudflare Tunnel sudah berubah.
     private static final String SERVER_URL =
-            "https://responses-neil-property-viii.trycloudflare.com";
+            "https://determining-bibliography-clusters-brook.trycloudflare.com";
 
     // Isi dengan API key yang sama persis seperti di config.json server.
     private static final String API_KEY = "NasyahCell-2026-KunciRahasia-73921";
